@@ -107,7 +107,7 @@ def run(tb, vb, lr, epochs, device):
 
 if __name__ == '__main__':
   args = vars(GetParser().parse_args())
-
+  device = 'cuda:{}'.format(GetGpuChoice)
   os.environ['modelname'] = args['model']
   os.environ['dataname'] = args['data']
-  run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'])
+  run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], device=)
