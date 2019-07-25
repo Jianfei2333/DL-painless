@@ -4,7 +4,7 @@ import numpy as np
 def GetTransform(data_normalize, input_size):
   transform = {
       'train': T.Compose([
-        T.Resize(tuple([x*(4/3) for x in input_size])), # 放大
+        T.Resize(tuple([int(x*(4/3)) for x in input_size])), # 放大
         T.RandomResizedCrop(input_size), # 随机裁剪后resize
         T.RandomHorizontalFlip(0.5), # 随机水平翻转
         T.RandomVerticalFlip(0.5), # 随机垂直翻转
