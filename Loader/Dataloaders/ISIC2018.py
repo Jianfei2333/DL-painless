@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, sampler
 from Loader.Transforms.default import GetTransform
 from Config.Modelconf import GetModelConf
 
-def get_dataloaders(train_batchsize, val_batchsize):
+def GetDataloaders(train_batchsize, val_batchsize):
   kwargs={
     'num_workers': 20,
     'pin_memory': True
