@@ -10,12 +10,13 @@ def get_dataloaders(train_batchsize, val_batchsize):
     'num_workers': 20,
     'pin_memory': True
   }
+  base = '/home/sysu_issjyin_2/jianfei/Data'
   normalize = T.Normalize(mean=[0.76352127,0.54612797,0.57053038], std=[0.14121186,0.15289281,0.17033405])
   transform = GetTransform(normalize, input_size=GetModelConf(os.environ['modelname'])['input_size'])
 
-  train_dset = dset.ImageFolder('/data0/Data/ISIC2018/Train', transform=transform['train'])
-  train4val_dset = dset.ImageFolder('/data0/Data/ISIC2018/Train', transform=transform['val'])
-  val_dset = dset.ImageFolder('/data0/Data/ISIC2018/Val', transform=transform['val'])
+  train_dset = dset.ImageFolder('{}/{}/{}'.format(base, os.environ['dataname'], 'Train'), transform=transform['train'])
+  train4val_dset = dset.ImageFolder('{}/{}/{}'.format(base, os.environ['dataname'], 'Train'), transform=transform['val'])
+  val_dset = dset.ImageFolder('{}/{}/{}'.format(base, os.environ['dataname'], 'Val'), transform=transform['val'])
 
   train_len = train_dset.__len__()
   val_len = val_dset.__len__()
