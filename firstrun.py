@@ -173,13 +173,13 @@ def run(tb, vb, lr, epochs, writer):
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
-    prompt = GetTemplate('default-log').format('Training',engine.state.epoch,avg_accuracy,avg_loss,precision_recall,cmatrix)
+    prompt = GetTemplate('default-log').format('Training',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
     logging.info(prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Avg precision': precision_recall})
+    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     # pbar.n = pbar.last_print_n = 0
   
   @trainer.on(Events.EPOCH_COMPLETED)
@@ -191,12 +191,13 @@ def run(tb, vb, lr, epochs, writer):
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
-    prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall,cmatrix)
+    prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
     logging.info(prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
+    writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
 
   # ------------------------------------
