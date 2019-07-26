@@ -115,7 +115,7 @@ def run(tb, vb, lr, epochs, writer):
   device = os.environ['main-device']
   logging.info('Training program start!')
   logging.info('Configuration:')
-  logging.info(json.dumps(INFO, indent=2))
+  logging.info('\n'+json.dumps(INFO, indent=2))
 
   # ------------------------------------
   # 1. Define dataloader
@@ -176,7 +176,7 @@ def run(tb, vb, lr, epochs, writer):
     cmatrix = metrics['cmatrix']
     prompt = GetTemplate('default-log').format('Training',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
-    logging.info(prompt)
+    logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
@@ -194,7 +194,7 @@ def run(tb, vb, lr, epochs, writer):
     cmatrix = metrics['cmatrix']
     prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
-    logging.info(prompt)
+    logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)

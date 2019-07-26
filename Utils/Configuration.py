@@ -27,7 +27,7 @@ def GetTBLogger():
 def GetLogger():
   logdir = "{}/{}.log".format(os.environ['logdir-base'], os.environ['run-id'])
   logging.basicConfig(filename=logdir, level=logging.INFO,
-                      format='%(asctime)s - %(levelname)s :\n%(message)s',
+                      format='%(asctime)s - %(levelname)s ::> %(message)s',
                       datefmt='%m/%d/%Y %H:%M:%S',filemode='a')
   return logging
 
