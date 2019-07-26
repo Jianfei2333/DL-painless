@@ -19,6 +19,7 @@ from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, M
 import os
 from tqdm import tqdm
 import logging
+import json
 
 from Utils.Argparser import GetArgParser
 from Utils.Template import GetTemplate
@@ -114,7 +115,7 @@ def run(tb, vb, lr, epochs, writer):
   device = os.environ['main-device']
   logging.info('Training program start!')
   logging.info('Configuration:')
-  logging.info(INFO)
+  logging.info(json.dump(INFO, indent=2))
 
   # ------------------------------------
   # 1. Define dataloader
