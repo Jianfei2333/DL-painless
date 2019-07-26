@@ -44,6 +44,9 @@ def CMatrixTable(cmatrix, cols):
   tab.add_column('gt\\pd', list(cols))
   for c in range(len(cols)):
     tab.add_column(cols[c], cmatrix[c])
+
+  tab.border=False
+
   return {
     'pretty': tab,
     'data': cmatrix

@@ -4,8 +4,8 @@ def GetTemplate(which='default-log'):
     'default-log':
 """
 {} Results - Epoch: {}
-Avg accuracy: {:.2f}
-Avg loss: {:.2f}
+Avg accuracy: {:.4f}
+Avg loss: {:.4f}
 precision_recall: \n{}
 confusion matrix: \n{}
 """
