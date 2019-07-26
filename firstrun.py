@@ -172,7 +172,7 @@ def run(tb, vb, lr, epochs, writer):
     cmatrix = metrics['cmatrix']
     prompt = GetTemplate('default-log').format('Training',engine.state.epoch,avg_accuracy,avg_loss,precision_recall,cmatrix)
     tqdm.write(prompt)
-    logging.INFO(prompt)
+    logging.info(prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
@@ -190,7 +190,7 @@ def run(tb, vb, lr, epochs, writer):
     cmatrix = metrics['cmatrix']
     prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall,cmatrix)
     tqdm.write(prompt)
-    logging.INFO(prompt)
+    logging.info(prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
