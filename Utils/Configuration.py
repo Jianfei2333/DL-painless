@@ -10,7 +10,7 @@ def GetDeviceSelection(gpus, gpu_number):
   if len(gpus) < gpu_number:
     print('Error: The GPU number assigned is more than total number of GPUs.')
     exit(1)
-  sorted_gpus = sorted(gpus, key=lambda x: x['memory.total']-x['memory.used'], reversed=True)
+  sorted_gpus = sorted(gpus, key=lambda x: x['memory.total']-x['memory.used'], reverse=True)
   l = [x['index'] for x in sorted_gpus][:gpu_number+1]
   selected_gpus = ','.join(l)
   main_device = 'cuda:{}'.format(l[0])
