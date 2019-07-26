@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-def GetParser():
+def GetArgParser():
   parser = ArgumentParser()
   parser.add_argument('-tb', '--train-batch-size', type=int, default= 20,
                       help='input batch size for training (default: 20)')
@@ -10,12 +10,8 @@ def GetParser():
                       help='Number of epochs to train (default: 200)')
   parser.add_argument('-lr', type=float, default= 3e-3,
                       help='Learning rate (default: 3e-3)')
-  parser.add_argument('--model', type=str, default='Efficientnetb3',
-                      help='Specify model to use (default: `Efficientnetb3`)')
-  parser.add_argument('--data', type=str, default='ISIC2018',
-                      help='Specify dataset to use (default: `ISIC2018`)')
-  parser.add_argument('--damp', type=str, default='default',
-                      help='Specify learning-rate damp rule (default: `default`)')
+  parser.add_argument('--gpus', type=int, default=1,
+                      help='Assign GPU numbers to use (default: 1)')
   parser.add_argument('--remark', type=str, default='debug',
-                      help='Add your own remark to this routine of training (default: `debug`)')
+                      help='Remark this run (default: `debug`)')
   return parser
