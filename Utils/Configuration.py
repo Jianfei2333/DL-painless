@@ -12,7 +12,7 @@ def GetDeviceSelection(gpus, gpu_number):
     exit(1)
   sorted_gpus = sorted(gpus, key=lambda x: x['memory.total']-x['memory.used'], reverse=True)
   l = [x['index'] for x in sorted_gpus][:gpu_number+1]
-  selected_gpus = ','.join(l)
+  selected_gpus = ','.join([str(x) for x in l])
   main_device = 'cuda:{}'.format(l[0])
   print('Select gpus are: {}\nMain gpu: {}'.format(selected_gpus, main_device))
   os.environ['main-device'] = main_device
