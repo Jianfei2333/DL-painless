@@ -112,6 +112,9 @@ def get_dataloaders(train_batchsize, val_batchsize):
 # * * * * * * * * * * * * * * * * *
 def run(tb, vb, lr, epochs, writer):
   device = os.environ['main-device']
+  logging.info('Training program start!')
+  logging.info('Configuration:')
+  logging.info(INFO)
 
   # ------------------------------------
   # 1. Define dataloader

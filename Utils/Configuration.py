@@ -25,10 +25,10 @@ def GetTBLogger():
   return writer
 
 def GetLogger():
-  logdir = "{}/{}".format(os.environ['logdir-base'], os.environ['run-id'])
-  logging.basicConfig(filename=logdir, level=logging.DEBUG)
-  logging.basicConfig(format='%(asctime)s - %(levelname)s :\n%(message)s')
-  logging.basicConfig(datefmt='%m/%d/%Y %H:%M:%S')
+  logdir = "{}/{}.log".format(os.environ['logdir-base'], os.environ['run-id'])
+  logging.basicConfig(filename=logdir, level=logging.DEBUG,
+                      format='%(asctime)s - %(levelname)s :\n%(message)s',
+                      datefmt='%m/%d/%Y %H:%M:%S')
 
 def run(info):
   query = json.load(os.popen('gpustat --json'))
