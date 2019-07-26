@@ -212,5 +212,5 @@ if __name__ == '__main__':
   args = vars(GetArgParser().parse_args())
   for k in args.keys():
     INFO[k] = args[k]
-  writer = config.run(INFO)
+  writer, logging = config.run(INFO)
   run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)

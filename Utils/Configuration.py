@@ -29,6 +29,7 @@ def GetLogger():
   logging.basicConfig(filename=logdir, level=logging.DEBUG,
                       format='%(asctime)s - %(levelname)s :\n%(message)s',
                       datefmt='%m/%d/%Y %H:%M:%S')
+  return logging
 
 def run(info):
   query = json.load(os.popen('gpustat --json'))
@@ -93,6 +94,7 @@ def run(info):
 
   # Return
   writer = GetTBLogger()
+  logging = GetLogger()
   os.environ['savedir'] = "{}/{}".format(os.environ['savedir-base'], run_id)
 
-  return writer
+  return writer, logging
