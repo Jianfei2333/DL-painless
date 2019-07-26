@@ -65,7 +65,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
     'pin_memory': True
   }
   input_size = INFO['model-info']['input-size']
-  base = os.environ['datadir-base']
+  base = '{}/{}'.format(os.environ['datadir-base'], INFO['dataset'])
   normalize = T.Normalize(mean=INFO['dataset-info']['normalization']['mean'], std=INFO['dataset-info']['normalization']['std'])
   transform = {
     'train': T.Compose([
