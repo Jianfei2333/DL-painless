@@ -176,7 +176,7 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    writer.add_scalars('Aggregate/Score', {'Avg precision': precision_recall})
+    # writer.add_scalars('Aggregate/Score', {'Avg precision': precision_recall})
     # pbar.n = pbar.last_print_n = 0
   
   @trainer.on(Events.EPOCH_COMPLETED)
@@ -191,6 +191,9 @@ def run(tb, vb, lr, epochs, writer):
     prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall,cmatrix)
     tqdm.write(prompt)
     logging.INFO(prompt)
+    writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
+    writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
+    writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
 
   # ------------------------------------
