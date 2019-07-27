@@ -135,7 +135,7 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 3. Define optimizer
   optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-  scheduler = optim.lr_scheduler.MultiSetpLR(optimizer, milestones=[40, 60, 80, 100, 120], gamma=0.1)
+  scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 60, 80, 100, 120], gamma=0.1)
   ignite_scheduler = LRScheduler(scheduler)
   
   # ------------------------------------
