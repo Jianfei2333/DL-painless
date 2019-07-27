@@ -150,6 +150,7 @@ def run(tb, vb, lr, epochs, writer):
 
   def val_pred_transform(output):
     y_pred, y = output
+    print(y_pred)
     y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
     return y_pred, y
 
