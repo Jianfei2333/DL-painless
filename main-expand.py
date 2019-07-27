@@ -85,10 +85,10 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train4val_dset = dset.ImageFolder('{}/{}'.format(base, 'Train'), transform=transform['val'])
   val_dset = dset.ImageFolder('{}/{}'.format(base, 'Val'), transform=transform['val'])
 
-  labels = torch.tensor(train_dset.imgs)[:, 1]
+  labels = torch.from_numpy(np.array(train_dset.imgs)[:, 1].astype(int))
   num_of_images_by_class = torch.zeros(len(train_dset.classes))
   for i in range(len(train_dset.classes)):
-    num_of_images_by_class[i] = torch.where(labels == str(i), torch.ones_like(labels), torch.zeros_like(labels)).sum().item()
+    num_of_images_by_class[i] = torch.where(labels == i, torch.ones_like(labels), torch.zeros_like(labels)).sum().item()
 
   mapping = {}
   for c in train_dset.classes:
@@ -135,7 +135,7 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 3. Define optimizer
   optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-  scheduler = optim.MultiSetpLR(optimizer, milestones=[40, 60, 80, 100, 120], gamma=0.1)
+  scheduler = optim.lr_scheduler.MultiSetpLR(optimizer, milestones=[40, 60, 80, 100, 120], gamma=0.1)
   ignite_scheduler = LRScheduler(scheduler)
   
   # ------------------------------------
