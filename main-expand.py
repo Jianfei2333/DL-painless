@@ -205,7 +205,13 @@ def run(tb, vb, lr, epochs, writer):
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
-    prompt = GetTemplate('default-log').format('Training',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
+    prompt = """
+      Training Results - Epoch: {}
+      Avg accuracy: {:.4f}
+      Avg loss: {:.4f}
+      precision_recall: \n{}
+      confusion matrix: \n{}
+      """.format(engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
     logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
@@ -223,7 +229,12 @@ def run(tb, vb, lr, epochs, writer):
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
-    prompt = GetTemplate('default-log').format('Validating',engine.state.epoch,avg_accuracy,avg_loss,precision_recall['pretty'],cmatrix['pretty'])
+    prompt = """
+      Validating Results - Epoch: {}
+      Avg accuracy: {:.4f}
+      precision_recall: \n{}
+      confusion matrix: \n{}
+      """.format(engine.state.epoch,avg_accuracy,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
     logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
