@@ -49,7 +49,7 @@ def CMatrixTable(cmatrix, cols):
     # tab.add_column(cols[c], cmatrix[c])
   df = pd.DataFrame(cmatrix, columns=cols, index=cols)
 
-  tab.border=False
+  # tab.border=False
 
   return {
     'pretty': df,
