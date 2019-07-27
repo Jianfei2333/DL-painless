@@ -150,7 +150,7 @@ def run(tb, vb, lr, epochs, writer):
 
   def val_pred_transform(output):
     y_pred, y = output
-    new_y_pred = torch.zeros((y_pred.shape[0], len(INFO['dataset-info']['known-classes'])+1))
+    new_y_pred = torch.zeros((y_pred.shape[0], len(INFO['dataset-info']['known-classes'])+1)).to(device=device)
     for c in range(y_pred.shape[1]):
       if c == 0:
         new_y_pred[:, mapping[c]] += y_pred[:, c]
