@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, sampler
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda
+from ignite.contrib.handlers.param_scheduler import LRScheduler
 
 import os
 from tqdm import tqdm
@@ -84,6 +85,18 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train4val_dset = dset.ImageFolder('{}/{}'.format(base, 'Train'), transform=transform['val'])
   val_dset = dset.ImageFolder('{}/{}'.format(base, 'Val'), transform=transform['val'])
 
+  labels = torch.tensor(train_dset.imgs)[:, 1]
+  num_of_images_by_class = torch.zeros(len(train_dset.classes))
+  for i in range(len(train_dset.classes)):
+    num_of_images_by_class[i] = torch.where(labels == str(i), torch.ones_like(labels), torch.zeros_like(labels)).sum().item()
+
+  mapping = {}
+  for c in train_dset.classes:
+    if c in INFO['dataset-info']['known-classes']:
+      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx[c]
+    else:
+      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx['UNKNOWN']
+
   train_len = train_dset.__len__()
   val_len = val_dset.__len__()
 
@@ -91,7 +104,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
   val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(val_len)), **kwargs)
 
-  return train_loader, train4val_loader, val_loader
+  return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping
 
 # * * * * * * * * * * * * * * * * *
 # Main loop
@@ -111,7 +124,8 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 1. Define dataloader
-  train_loader, train4val_loader, val_loader = get_dataloaders(tb, vb)
+  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+  weights = (1/num_of_images)/((1/num_of_images).sum().item())
   
   # ------------------------------------
   # 2. Define model
@@ -121,23 +135,37 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 3. Define optimizer
   optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+  scheduler = optim.MultiSetpLR(optimizer, milestones=[40, 60, 80, 100, 120], gamma=0.1)
+  ignite_scheduler = LRScheduler(scheduler)
   
   # ------------------------------------
   # 4. Define metrics
-  metrics = {
+  train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(nn.functional.cross_entropy),
+    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(7), train_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num_of_classes']), train_loader.dataset.classes)
+  }
+
+  def val_pred_transform(output):
+    y_pred, y = output
+    y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
+    return y_pred, y
+
+  val_metrics = {
+    'accuracy': Accuracy(val_pred_transform),
+    'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(val_pred_transform), Recall(val_pred_transform), train_loader.dataset.classes),
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num_of_classes'], output_transform=val_pred_transform), train_loader.dataset.classes)
   }
   
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, nn.functional.cross_entropy, device=device)
+  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
-  evaluator = create_supervised_evaluator(model, metrics=metrics, device=device)
+  train_evaluator = create_supervised_evaluator(model, metrics=train_metrics, device=device)
+  val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
 
   desc = 'ITERATION - loss: {:.4f}'
   pbar = tqdm(
@@ -160,8 +188,8 @@ def run(tb, vb, lr, epochs, writer):
   def log_training_results(engine):
     pbar.refresh()
     print ('Checking on training set.')
-    evaluator.run(train4val_loader)
-    metrics = evaluator.state.metrics
+    train_evaluator.run(train4val_loader)
+    metrics = train_evaluator.state.metrics
     avg_accuracy = metrics['accuracy']
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
@@ -178,8 +206,8 @@ def run(tb, vb, lr, epochs, writer):
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_validation_results(engine):
     print ('Checking on validation set.')
-    evaluator.run(val_loader)
-    metrics = evaluator.state.metrics
+    val_evaluator.run(val_loader)
+    metrics = val_evaluator.state.metrics
     avg_accuracy = metrics['accuracy']
     avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
@@ -192,6 +220,8 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
+
+  trainer.add_event_handler(Events.EPOCH_STARTED, scheduler)
 
   # ------------------------------------
   # Run
