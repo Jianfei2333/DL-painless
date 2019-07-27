@@ -27,6 +27,7 @@ from Utils.Template import GetTemplate
 from Utils.Metric import PrecisionRecallTable, CMatrixTable
 import Utils.Configuration as config
 from Utils.Modelcarrier import carrier
+from Utils.Fakedata import get_fakedataloader
 
 # * * * * * * * * * * * * * * * * *
 # Define the training info
@@ -165,7 +166,7 @@ def run(tb, vb, lr, epochs, writer):
   val_metrics = {
     'accuracy': Accuracy(val_pred_transform),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(val_pred_transform), Recall(val_pred_transform), train_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes'], output_transform=val_pred_transform), train_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(len(INFO['dataset-info']['known-classes'])+1, output_transform=val_pred_transform), train_loader.dataset.classes)
   }
   
   # ------------------------------------
