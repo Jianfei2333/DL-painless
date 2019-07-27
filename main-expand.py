@@ -221,7 +221,7 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
 
-  trainer.add_event_handler(Events.EPOCH_STARTED, scheduler)
+  trainer.add_event_handler(Events.EPOCH_STARTED, ignite_scheduler)
 
   # ------------------------------------
   # Run
