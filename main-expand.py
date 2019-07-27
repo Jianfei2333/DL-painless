@@ -226,7 +226,6 @@ def run(tb, vb, lr, epochs, writer):
     val_evaluator.run(val_loader)
     metrics = val_evaluator.state.metrics
     avg_accuracy = metrics['accuracy']
-    avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
     prompt = """
