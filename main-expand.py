@@ -144,7 +144,7 @@ def run(tb, vb, lr, epochs, writer):
     'accuracy': Accuracy(),
     'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num_of_classes']), train_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
 
   def val_pred_transform(output):
@@ -155,7 +155,7 @@ def run(tb, vb, lr, epochs, writer):
   val_metrics = {
     'accuracy': Accuracy(val_pred_transform),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(val_pred_transform), Recall(val_pred_transform), train_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num_of_classes'], output_transform=val_pred_transform), train_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes'], output_transform=val_pred_transform), train_loader.dataset.classes)
   }
   
   # ------------------------------------
