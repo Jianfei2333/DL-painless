@@ -32,16 +32,17 @@ from Utils.Modelcarrier import carrier
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2018',
+  'dataset': 'ISIC2018-expand',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 7,
+    'num-of-classes': 196,
     'normalization': {
-      'mean': [0.76352127,0.54612797,0.57053038],
-      'std': [0.14121186,0.15289281,0.17033405]
-    }
+      'mean': [0.645949285966695,0.5280427721210771,0.5413824851836213],
+      'std': [0.2271920448317491,0.21024010089240586,0.22535982492903597]
+    },
+    'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
   }
 }
 
@@ -50,15 +51,7 @@ INFO = {
 # * * * * * * * * * * * * * * * * *
 def get_dataloaders(train_batchsize, val_batchsize):
   """
-  Dataloader: ISIC2018.
-
-  Args:
-    - input_size: tuple, the Model inputsize, used in data augmentation.
-    - train_batchsize: int, the batch-size hyperparameter used when training.
-    - val_batchsize: int, the batch-size hyperparameter used when validating.
-
-  Return:
-    - 
+  Dataloader: ISIC2018-expand.
   """
   kwargs={
     'num_workers': 20,
