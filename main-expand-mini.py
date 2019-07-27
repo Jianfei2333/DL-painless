@@ -34,7 +34,7 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2018-expand',
+  'dataset': 'ISIC2018-expand-mini',
   'model-info': {
     'input-size': (300, 300)
   },
