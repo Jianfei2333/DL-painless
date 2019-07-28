@@ -158,16 +158,8 @@ def run(tb, vb, lr, epochs, writer):
     y_pred, y = output
     new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
     for ind, c in enumerate(train_loader.dataset.classes):
-      new_col = val_loader.data.set.class_to_idx[c]
+      new_col = val_loader.dataset.class_to_idx[c]
       new_y_pred[:, new_col] += y_pred[:, ind]
-      # if c == 0:
-      #   new_y_pred[:, mapping[c]] += y_pred[:, c]
-      # elif mapping[c] == val_loader.dataset.class_to_idx['UNKNOWN']:
-      #   new_y_pred[:, mapping[c]] = torch.where(new_y_pred[:, mapping[c]]>y_pred[:, c],new_y_pred[:, mapping[c]],y_pred[:, c])
-      # else:
-      #   new_y_pred[:, mapping[c]] += y_pred[:, c]
-    # new_y_pred[:, 4] /= y_pred.shape[1]-new_y_pred.shape[1]+1
-    # y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
     ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
     import math
     new_y_pred[:, ukn_ind] = -math.inf
