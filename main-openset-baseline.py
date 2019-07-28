@@ -154,24 +154,21 @@ def run(tb, vb, lr, epochs, writer):
   # Abandon in this entrance
   # * * * * * * * * * * * * * * * * * *
   
-  # def val_pred_transform(output):
-  #   y_pred, y = output
-  #   new_y_pred = torch.zeros((y_pred.shape[0], len(INFO['dataset-info']['known-classes'])+1)).to(device=device)
-  #   for c in range(y_pred.shape[1]):
-  #     if c == 0:
-  #       new_y_pred[:, mapping[c]] += y_pred[:, c]
-  #     elif mapping[c] == val_loader.dataset.class_to_idx['UNKNOWN']:
-  #       new_y_pred[:, mapping[c]] = torch.where(new_y_pred[:, mapping[c]]>y_pred[:, c],new_y_pred[:, mapping[c]],y_pred[:, c])
-  #     else:
-  #       new_y_pred[:, mapping[c]] += y_pred[:, c]
-  #   # new_y_pred[:, 4] /= y_pred.shape[1]-new_y_pred.shape[1]+1
-  #   # y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
-  #   return new_y_pred, y
+  def val_pred_transform(output):
+    y_pred, y = output
+    new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
+    for ind, c in enumerate(train_loader.dataset.classes):
+      new_col = val_loader.dataset.class_to_idx[c]
+      new_y_pred[:, new_col] += y_pred[:, ind]
+    ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
+    import math
+    new_y_pred[:, ukn_ind] = -math.inf
+    return new_y_pred, y
 
   val_metrics = {
     'accuracy': Accuracy(),
-    'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), val_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), val_loader.dataset.classes)
+    'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(val_pred_transform), Recall(val_pred_transform), val_loader.dataset.classes),
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']+1, output_transform=val_pred_transform), val_loader.dataset.classes)
   }
   
   # ------------------------------------
