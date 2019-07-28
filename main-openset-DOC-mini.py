@@ -184,7 +184,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(DOCLoss(weight=weights)),
+    'loss': Loss(DOCLoss(weights=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
