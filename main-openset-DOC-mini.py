@@ -13,9 +13,8 @@ import torchvision.transforms as T
 import torchvision.datasets as dset
 from torch.utils.data import DataLoader, sampler
 
-import ignite
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda
+from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda, metric
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 
 import os
