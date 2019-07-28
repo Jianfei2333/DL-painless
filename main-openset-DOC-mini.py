@@ -13,8 +13,9 @@ import torchvision.transforms as T
 import torchvision.datasets as dset
 from torch.utils.data import DataLoader, sampler
 
+import ignite
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda, metric
+from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 
 import os
@@ -161,7 +162,7 @@ def run(tb, vb, lr, epochs, writer):
         loss = -torch.sum(sigmoid)
       return loss
 
-  class DOCPrediction(metric):
+  class DOCPrediction(ignite.metric.metric):
     def __init__(self, threshold=torch.tensor([0.5]).repeat(len(train_loader.dataset.classes))):
       super(DOCPrediction).__init__()
       threshold = threshold.to(device=device)
