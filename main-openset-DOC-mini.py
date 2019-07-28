@@ -148,7 +148,7 @@ def run(tb, vb, lr, epochs, writer):
 
   class DOCLoss(nn.Module):
     def __init__(self, weight):
-      super(DOCLoss).__init__()
+      super(DOCLoss, self).__init__()
       self.class_weights = weight
     
     def forward(self, input, target):
