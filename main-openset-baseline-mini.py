@@ -91,12 +91,12 @@ def get_dataloaders(train_batchsize, val_batchsize):
   for i in range(len(train_dset.classes)):
     num_of_images_by_class[i] = torch.where(labels == i, torch.ones_like(labels), torch.zeros_like(labels)).sum().item()
 
-  mapping = {}
-  for c in train_dset.classes:
-    if c in INFO['dataset-info']['known-classes']:
-      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx[c]
-    else:
-      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx['UNKNOWN']
+  # mapping = {}
+  # for c in train_dset.classes:
+  #   if c in INFO['dataset-info']['known-classes']:
+  #     mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx[c]
+  #   else:
+  #     mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx['UNKNOWN']
 
   train_len = train_dset.__len__()
   val_len = val_dset.__len__()
@@ -105,7 +105,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
   val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(val_len)), **kwargs)
 
-  return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping
+  return train_loader, train4val_loader, val_loader, num_of_images_by_class# , mapping
 
 # * * * * * * * * * * * * * * * * *
 # Main loop
@@ -125,7 +125,8 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 1. Define dataloader
-  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+  # train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+  train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
   weights = (1/num_of_images)/((1/num_of_images).sum().item())
   weights = weights.to(device=device)
   
