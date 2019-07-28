@@ -147,9 +147,9 @@ def run(tb, vb, lr, epochs, writer):
   # 4. Define metrics
 
   class DOCLoss(nn.Module):
-    def __init__(self, weights):
+    def __init__(self, weight):
       super(DOCLoss).__init__()
-      self.class_weights = weights
+      self.class_weights = weight
     
     def forward(self, input, target):
       sigmoid = 1 - 1 / (1 + torch.exp(-input))
@@ -184,7 +184,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(DOCLoss(weights=weights)),
+    'loss': Loss(DOCLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
