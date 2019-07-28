@@ -171,7 +171,7 @@ def run(tb, vb, lr, epochs, writer):
   val_metrics = {
     'accuracy': Accuracy(),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), val_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), val_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']+1), val_loader.dataset.classes)
   }
   
   # ------------------------------------
