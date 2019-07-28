@@ -162,7 +162,7 @@ def run(tb, vb, lr, epochs, writer):
         loss = -torch.sum(sigmoid)
       return loss
 
-  class DOCPrediction(ignite.metric.metric):
+  class DOCPrediction(ignite.metrics.metric):
     def __init__(self, threshold=torch.tensor([0.5]).repeat(len(train_loader.dataset.classes))):
       super(DOCPrediction).__init__()
       threshold = threshold.to(device=device)
