@@ -128,8 +128,8 @@ def run(tb, vb, lr, epochs, writer):
   # 1. Define dataloader
   train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
   # train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
-  # weights = (1/num_of_images)/((1/num_of_images).sum().item())
-  weights = (1/num_of_images)/(1/num_of_images + 1/(num_of_images.sum().item()-num_of_images))
+  weights = (1/num_of_images)/((1/num_of_images).sum().item())
+  # weights = (1/num_of_images)/(1/num_of_images + 1/(num_of_images.sum().item()-num_of_images))
   weights = weights.to(device=device)
   
   # ------------------------------------
