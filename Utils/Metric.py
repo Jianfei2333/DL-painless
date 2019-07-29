@@ -40,7 +40,7 @@ def CMatrixTable(cmatrix, cols):
   Return:
     - table: PrettyTable object. Show the confusion matrix.
   """
-  cmatrix = cmatrix.numpy().astype(int).T
+  cmatrix = cmatrix.numpy().astype(int)
   df = pd.DataFrame(cmatrix, columns=cols, index=cols)
   return {
     'pretty': df,
