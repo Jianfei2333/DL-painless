@@ -163,7 +163,7 @@ def run(tb, vb, lr, epochs, writer):
 
   class DOCPrediction(metric.Metric):
     def __init__(self, threshold=torch.tensor([0.5]).repeat(len(train_loader.dataset.classes))):
-      super(DOCPrediction).__init__()
+      super(DOCPrediction, self).__init__()
       threshold = threshold.to(device=device)
       self.threshold = threshold
     
@@ -173,7 +173,7 @@ def run(tb, vb, lr, epochs, writer):
     
     def update(self, output):
       # print(output)
-      (y_pred, y) = output
+      y_pred, y = output
       print(y_pred, y)
       sigmoid = 1 / (1 + torch.exp(-y_pred))
       values, inds = sigmoid.max(1)
@@ -191,16 +191,17 @@ def run(tb, vb, lr, epochs, writer):
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
-  def val_pred_transform(output):
-    y_pred, y = output
-    new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
-    for ind, c in enumerate(train_loader.dataset.classes):
-      new_col = val_loader.dataset.class_to_idx[c]
-      new_y_pred[:, new_col] += y_pred[:, ind]
-    ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
-    import math
-    new_y_pred[:, ukn_ind] = -math.inf
-    return new_y_pred, y
+
+  # def val_pred_transform(output):
+  #   y_pred, y = output
+  #   new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
+  #   for ind, c in enumerate(train_loader.dataset.classes):
+  #     new_col = val_loader.dataset.class_to_idx[c]
+  #     new_y_pred[:, new_col] += y_pred[:, ind]
+  #   ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
+  #   import math
+  #   new_y_pred[:, ukn_ind] = -math.inf
+  #   return new_y_pred, y
 
   val_metrics = {
     'accuracy': MetricsLambda(Labels2Acc, DOCPrediction()),
