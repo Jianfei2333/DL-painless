@@ -182,7 +182,7 @@ def run(tb, vb, lr, epochs, writer):
       self.y = y
       # return self.prediction, self.y
 
-    def compute(self, output):
+    def compute(self):
       return self.prediction, self.y
 
   train_metrics = {
