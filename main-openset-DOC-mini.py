@@ -172,9 +172,7 @@ def run(tb, vb, lr, epochs, writer):
       super(DOCPrediction, self).reset()
     
     def update(self, output):
-      # print(output)
       y_pred, y = output
-      print(y_pred, y)
       sigmoid = 1 / (1 + torch.exp(-y_pred))
       values, inds = sigmoid.max(1)
       prediction = torch.where(values>self.threshold[inds], inds, torch.tensor([-1]).to(device=device))
