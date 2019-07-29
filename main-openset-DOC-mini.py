@@ -166,9 +166,13 @@ def run(tb, vb, lr, epochs, writer):
       super(DOCPrediction, self).__init__()
       threshold = threshold.to(device=device)
       self.threshold = threshold
+      self.prediction = torch.tensor([]).to(device=device)
+      self.y = torch.tensor([]).to(device=device)
     
     def reset(self):
       self.threshold = torch.tensor([0.5]).repeat(len(train_loader.dataset.classes)).to(device=device)
+      self.prediction = torch.tensor([]).to(device=device)
+      self.y = torch.tensor([]).to(device=device)
       super(DOCPrediction, self).reset()
     
     def update(self, output):
@@ -176,8 +180,8 @@ def run(tb, vb, lr, epochs, writer):
       sigmoid = 1 / (1 + torch.exp(-y_pred))
       values, inds = sigmoid.max(1)
       prediction = torch.where(values>self.threshold[inds], inds, torch.tensor([-1]).to(device=device))
-      self.prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
-      self.y = y
+      self.prediction = torch.cat(self.prediction, torch.tensor([mapping[x.item()] for x in prediction]).to(device=device))
+      self.y = torch.cat(self.y, y)
       # return self.prediction, self.y
 
     def compute(self):

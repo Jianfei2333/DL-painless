@@ -67,8 +67,9 @@ def Labels2PrecisionRecall(labels, cols):
 
 def Labels2CMatrix(labels, cols):
   y_pred, y_true = labels
+  print(y_pred, y_true)
   num_classes = len(cols)
   cmatrix = torch.zeros(num_classes, num_classes)
   for i in range(y_pred.shape[0]):
-    cmatrix[y_true[i].item()][y_pred[i].item()] += 1
+    cmatrix[y_pred[i].item()][y_true[i].item()] += 1
   return CMatrixTable(cmatrix, cols)
