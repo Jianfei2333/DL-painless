@@ -195,17 +195,6 @@ def run(tb, vb, lr, epochs, writer):
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
 
-  # def val_pred_transform(output):
-  #   y_pred, y = output
-  #   new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
-  #   for ind, c in enumerate(train_loader.dataset.classes):
-  #     new_col = val_loader.dataset.class_to_idx[c]
-  #     new_y_pred[:, new_col] += y_pred[:, ind]
-  #   ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
-  #   import math
-  #   new_y_pred[:, ukn_ind] = -math.inf
-  #   return new_y_pred, y
-
   val_metrics = {
     'accuracy': MetricsLambda(Labels2Acc, DOCPrediction()),
     'precision_recall': MetricsLambda(Labels2PrecisionRecall, DOCPrediction(), val_loader.dataset.classes),
@@ -263,9 +252,7 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
-  
+
   # Compute metrics on val data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_validation_results(engine):

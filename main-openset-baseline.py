@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, sampler
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, MetricsLambda
 from ignite.contrib.handlers.param_scheduler import LRScheduler
+from ignite.handlers import ModelCheckpoint
 
 import os
 from tqdm import tqdm
@@ -189,6 +190,8 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 7. Create event hooks
+
+  # Update process bar on each iteration completed.
   @trainer.on(Events.ITERATION_COMPLETED)
   def log_training_loss(engine):
     log_interval = 1
@@ -197,6 +200,7 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(engine.state.output)
       pbar.update(log_interval)
 
+  # Compute metrics on train data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_training_results(engine):
     pbar.refresh()
@@ -219,9 +223,8 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
   
+  # Compute metrics on val data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_validation_results(engine):
     print ('Checking on validation set.')
@@ -243,6 +246,10 @@ def run(tb, vb, lr, epochs, writer):
     # writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
+
+  # Save model ever N epoch.
+  save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=50, n_saved=2)
+  trainer.add_event_handler(Events.EPOCH_COMPLETED, save_model_handler, {'model': model})
 
   trainer.add_event_handler(Events.EPOCH_STARTED, ignite_scheduler)
 
