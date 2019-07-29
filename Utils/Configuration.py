@@ -55,13 +55,13 @@ def run(info):
       'tb-logdir-base': '/data0/jianfei/tensorboard-log',
       'logdir-base': '/data0/jianfei/Log/runlog',
       'savedir-base': '/data0/jianfei/models',
-      'datadir-base': '/data0/share'
+      'datadir-base': '/data15/jianfei/Data'
     },
     'Lab2': {
       'tb-logdir-base': '/data0/jianfei/tensorboard-log',
       'logdir-base': '/data0/jianfei/Log/runlog',
       'savedir-base': '/data0/jianfei/models',
-      'datadir-base': '/data0/share'
+      'datadir-base': '/data16/jianfei/Data'
     },
     'Labpc': {
       'tb-logdir-base': '/home/huihui/Log/tensorboard-log',
