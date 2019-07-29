@@ -180,8 +180,8 @@ def run(tb, vb, lr, epochs, writer):
       sigmoid = 1 / (1 + torch.exp(-y_pred))
       values, inds = sigmoid.max(1)
       prediction = torch.where(values>self.threshold[inds], inds, torch.tensor([-1]).to(device=device))
-      self.prediction = torch.cat(self.prediction, torch.tensor([mapping[x.item()] for x in prediction]).to(device=device))
-      self.y = torch.cat(self.y, y)
+      self.prediction = torch.cat((self.prediction, torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
+      self.y = torch.cat((self.y, y))
       # return self.prediction, self.y
 
     def compute(self):
