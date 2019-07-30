@@ -34,17 +34,17 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2018-openset',
+  'dataset': 'ISIC2019-expand-mini',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 5,
+    'num-of-classes': 196,
     'normalization': {
-      'mean': [0.76352127,0.54612797,0.57053038],
-      'std': [0.14121186,0.15289281,0.17033405]
+      'mean': [0.645949285966695,0.5280427721210771,0.5413824851836213],
+      'std': [0.2271920448317491,0.21024010089240586,0.22535982492903597]
     },
-    # 'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
+    'known-classes': ['BCC', 'BKL', 'DF', 'MEL', 'NV', 'SCC']
   }
 }
 
@@ -91,12 +91,12 @@ def get_dataloaders(train_batchsize, val_batchsize):
   for i in range(len(train_dset.classes)):
     num_of_images_by_class[i] = torch.where(labels == i, torch.ones_like(labels), torch.zeros_like(labels)).sum().item()
 
-  # mapping = {}
-  # for c in train_dset.classes:
-  #   if c in INFO['dataset-info']['known-classes']:
-  #     mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx[c]
-  #   else:
-  #     mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx['UNKNOWN']
+  mapping = {}
+  for c in train_dset.classes:
+    if c in INFO['dataset-info']['known-classes']:
+      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx[c]
+    else:
+      mapping[train_dset.class_to_idx[c]] = val_dset.class_to_idx['UNKNOWN']
 
   train_len = train_dset.__len__()
   val_len = val_dset.__len__()
@@ -105,7 +105,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
   val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(val_len)), **kwargs)
 
-  return train_loader, train4val_loader, val_loader, num_of_images_by_class# , mapping
+  return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping
 
 # * * * * * * * * * * * * * * * * *
 # Main loop
@@ -125,8 +125,7 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 1. Define dataloader
-  # train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
-  train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
+  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
   weights = (1/num_of_images)/((1/num_of_images).sum().item())
   weights = weights.to(device=device)
   
@@ -150,25 +149,24 @@ def run(tb, vb, lr, epochs, writer):
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
 
-  # * * * * * * * * * * * * * * * * * *
-  # Abandon in this entrance
-  # * * * * * * * * * * * * * * * * * *
-  
   def val_pred_transform(output):
     y_pred, y = output
-    new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
-    for ind, c in enumerate(train_loader.dataset.classes):
-      new_col = val_loader.dataset.class_to_idx[c]
-      new_y_pred[:, new_col] += y_pred[:, ind]
-    ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
-    import math
-    new_y_pred[:, ukn_ind] = -math.inf
+    new_y_pred = torch.zeros((y_pred.shape[0], len(INFO['dataset-info']['known-classes'])+1)).to(device=device)
+    for c in range(y_pred.shape[1]):
+      if c == 0:
+        new_y_pred[:, mapping[c]] += y_pred[:, c]
+      elif mapping[c] == val_loader.dataset.class_to_idx['UNKNOWN']:
+        new_y_pred[:, mapping[c]] = torch.where(new_y_pred[:, mapping[c]]>y_pred[:, c],new_y_pred[:, mapping[c]],y_pred[:, c])
+      else:
+        new_y_pred[:, mapping[c]] += y_pred[:, c]
+    # new_y_pred[:, 4] /= y_pred.shape[1]-new_y_pred.shape[1]+1
+    # y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
     return new_y_pred, y
 
   val_metrics = {
-    'accuracy': Accuracy(),
+    'accuracy': Accuracy(val_pred_transform),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(val_pred_transform), Recall(val_pred_transform), val_loader.dataset.classes),
-    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']+1, output_transform=val_pred_transform), val_loader.dataset.classes)
+    'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(len(INFO['dataset-info']['known-classes'])+1, output_transform=val_pred_transform), val_loader.dataset.classes)
   }
   
   # ------------------------------------
@@ -191,7 +189,7 @@ def run(tb, vb, lr, epochs, writer):
   # 7. Create event hooks
   @trainer.on(Events.ITERATION_COMPLETED)
   def log_training_loss(engine):
-    log_interval = 1
+    log_interval = 5
     iter = (engine.state.iteration - 1) % len(train_loader) + 1
     if iter % log_interval == 0:
       pbar.desc = desc.format(engine.state.output)

@@ -34,17 +34,17 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2018-expand-mini',
+  'dataset': 'ISIC2019-expand',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 196,
+    'num-of-classes': 182,
     'normalization': {
       'mean': [0.645949285966695,0.5280427721210771,0.5413824851836213],
       'std': [0.2271920448317491,0.21024010089240586,0.22535982492903597]
     },
-    'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
+    'known-classes': ['BCC', 'BKL', 'DF', 'MEL', 'NV', 'SCC']
   }
 }
 
@@ -159,8 +159,6 @@ def run(tb, vb, lr, epochs, writer):
         new_y_pred[:, mapping[c]] = torch.where(new_y_pred[:, mapping[c]]>y_pred[:, c],new_y_pred[:, mapping[c]],y_pred[:, c])
       else:
         new_y_pred[:, mapping[c]] += y_pred[:, c]
-    # new_y_pred[:, 4] /= y_pred.shape[1]-new_y_pred.shape[1]+1
-    # y_pred = torch.tensor([mapping[x.item()] for x in y_pred])
     return new_y_pred, y
 
   val_metrics = {
