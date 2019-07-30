@@ -34,7 +34,7 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-expand',
+  'dataset': 'ISIC2019-openset-expand',
   'model-info': {
     'input-size': (300, 300)
   },
@@ -187,7 +187,7 @@ def run(tb, vb, lr, epochs, writer):
   # 7. Create event hooks
   @trainer.on(Events.ITERATION_COMPLETED)
   def log_training_loss(engine):
-    log_interval = 5
+    log_interval = 1
     iter = (engine.state.iteration - 1) % len(train_loader) + 1
     if iter % log_interval == 0:
       pbar.desc = desc.format(engine.state.output)
@@ -204,7 +204,7 @@ def run(tb, vb, lr, epochs, writer):
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
     prompt = """
-      Training Results - Epoch: {}
+      <Training> Results - Epoch: {}
       Avg accuracy: {:.4f}
       Avg loss: {:.4f}
       precision_recall: \n{}
@@ -215,8 +215,6 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
   
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_validation_results(engine):
@@ -227,7 +225,7 @@ def run(tb, vb, lr, epochs, writer):
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
     prompt = """
-      Validating Results - Epoch: {}
+      <Validating> Results - Epoch: {}
       Avg accuracy: {:.4f}
       precision_recall: \n{}
       confusion matrix: \n{}
@@ -236,7 +234,6 @@ def run(tb, vb, lr, epochs, writer):
     logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
 
