@@ -35,7 +35,7 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset',
+  'dataset': 'ISIC2019-openset-refold',
   'model-info': {
     'input-size': (300, 300)
   },
@@ -54,7 +54,7 @@ INFO = {
 # * * * * * * * * * * * * * * * * *
 def get_dataloaders(train_batchsize, val_batchsize):
   """
-  Dataloader: ISIC2018-expand.
+  Dataloader: ISIC2019-openset-refold.
   """
   kwargs={
     'num_workers': 20,
@@ -141,7 +141,7 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 3. Define optimizer
   optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-  scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 80, 100, 120, 150], gamma=0.1)
+  scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
   ignite_scheduler = LRScheduler(scheduler)
   
   # ------------------------------------
