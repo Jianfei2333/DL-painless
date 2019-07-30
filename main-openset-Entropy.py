@@ -4,8 +4,7 @@ import torch.optim as optim
 import torch.nn as nn
 
 import numpy as np
-from prettytable import PrettyTable
-from argparse import ArgumentParser
+import math
 
 from efficientnet_pytorch import EfficientNet
 
@@ -181,7 +180,7 @@ def run(tb, vb, lr, epochs, writer):
     def update(self, output):
       y_pred, y = output
       softmax = torch.exp(y_pred) / torch.exp(y_pred).sum(1)[:, None]
-      entropy_base = torch.log(y_pred.shape[1]).item()
+      entropy_base = math.log(y_pred.shape[1])
       entropy = (-softmax * torch.log(softmax)).sum(1)/entropy_base
       values, inds = softmax.max(1)
       prediction = torch.where(entropy>self.threshold, inds, torch.tensor([-1]).to(device=device))
