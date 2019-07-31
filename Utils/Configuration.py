@@ -4,6 +4,7 @@ import os
 import logging
 import hashlib
 import time
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
 def GetDeviceSelection(gpus, gpu_number):
@@ -16,6 +17,7 @@ def GetDeviceSelection(gpus, gpu_number):
   main_device = 'cuda:{}'.format(l[0])
   print('Select gpus are: {}\nMain gpu: {}'.format(selected_gpus, main_device))
   os.environ['main-device'] = main_device
+  torch.cuda.set_decive(main_device)
   os.environ['gpus'] = selected_gpus
   return
 
