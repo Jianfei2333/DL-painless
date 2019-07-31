@@ -5,6 +5,7 @@ import logging
 import hashlib
 import time
 import torch
+import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
 
 def GetDeviceSelection(gpus, gpu_number):
@@ -93,6 +94,10 @@ def run(info):
   id_code = hashlib.sha512(bytes(run_id, 'utf-8')).hexdigest()[:7]
   run_id = '_'.join([run_id, id_code])
   os.environ['run-id'] = run_id
+
+  # Display settings
+  pd.set_option('display.max_rows', 15)
+  pd.set_option('display.max_colwidth', 10)
 
   # Return
   writer = GetTBLogger()
