@@ -280,12 +280,4 @@ if __name__ == '__main__':
   for k in args.keys():
     INFO[k] = args[k]
   writer, logging = config.run(INFO)
-  if os.environ['mode'] == 'train':
-    run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
-  elif os.environ['mode'] == 'evaluate':
-    logfiledir = "{}/{}-val.log".format(os.environ['logdir-base'], os.environ['run-id'])
-    logging.basicConfig(filename=logfiledir)
-    if not os.path.exists(args['model_path']):
-      print ('Error! No such model file')
-      exit(1)
-    evaluate(args['train_batch_size'], args['val_batch_size'], args['model_path'])
+  run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
