@@ -193,7 +193,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(SoftCrossEntropyLoss(weight=weights)),
+    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
@@ -206,7 +206,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, SoftCrossEntropyLoss(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
@@ -255,8 +255,6 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
   
   # Compute metrics on val data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
@@ -292,6 +290,111 @@ def run(tb, vb, lr, epochs, writer):
   trainer.run(train_loader, max_epochs=epochs)
   pbar.close()
 
+# * * * * * * * * * * * * * * * * *
+# Evaluator
+# * * * * * * * * * * * * * * * * *
+def evaluate(tb, vb, modelpath):
+  device = os.environ['main-device']
+  logging.info('Evaluating program start!')
+  
+  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+
+  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = carrier(model)
+  model.load_state_dict(torch.load(modelpath))
+
+  class entropy(metric.Metric):
+    def __init__(self):
+      super(entropy, self).__init__()
+      # self.values = torch.tensor([], dtype=torch.float)
+      self.entropy_rate = torch.tensor([], dtype=torch.float)
+      self.inds = torch.tensor([], dtype=torch.int)
+      self.y = torch.tensor([], dtype=torch.int)
+    
+    def reset(self):
+      # self.values = torch.tensor([])
+      self.entropy_rate = torch.tensor([])
+      self.inds = torch.tensor([])
+      self.y = torch.tensor([])
+      super(entropy, self).reset()
+    
+    def update(self, output):
+      y_pred, y = output
+      softmax = torch.exp(y_pred) / torch.exp(y_pred).sum(1)[:, None]
+      entropy_base = math.log(y_pred.shape[1])
+      entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
+      _, inds = softmax.max(1)
+      # prediction = torch.where(entropy>self.threshold, inds, torch.tensor([-1]).to(device=device))
+      # self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
+      self.entropy_rate = torch.cat((self.entropy_rate.to(device=device), entropy_rate)).to(device=device)
+      self.y = torch.cat((self.y.type(torch.LongTensor).to(device=device), y.to(device=device)))
+
+    def compute(self):
+      return self.entropy_rate, self.inds, self.y
+
+  val_metrics = {
+    'result': entropy()
+  }
+
+  val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
+  val_evaluator.run(val_loader)
+  metrics = val_evaluator.state.metrics
+  entropy, inds, y = metrics['result']
+  
+  def log_validation_results(threshold):
+
+    prediction = torch.where(entropy>threshold, inds, torch.tensor([-1]).to(device=device))
+    prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
+
+    avg_accuracy = Labels2Acc((prediction, y))
+    precision_recall = Labels2PrecisionRecall((prediction, y), val_loader.dataset.classes)
+    cmatrix = Labels2CMatrix((prediction, y), val_loader.dataset.classes)
+    unknown = precision_recall['pretty']['UNKNOWN']
+    unknown_f1 = 2/((1/unknown['Precision'])+(1/unknown['Recall']))
+    prompt = """
+      Threshold: \n{}
+
+      Avg accuracy: {:.4f}
+
+      Unknown precision: {:.4f}
+      Unknown recall: {:.4f}
+      Unknown F1 score: {:.4f}
+
+      precision_recall: \n{}
+
+      confusion matrix: \n{}
+      """.format(threshold.cpu().numpy(),avg_accuracy,unknown['Precision'],unknown['Recall'],unknown_f1,precision_recall['pretty'],cmatrix['pretty'])
+    tqdm.write(prompt)
+    logging.info('\n'+prompt)
+    return {
+      'unknown_precision': unknown['Precision'],
+      'unknown_recall': unknown['Recall'],
+      'unknown_f1': unknown_f1
+    }
+
+  scores = {}
+
+  for threshold in np.arange(0.0001, 1.0, 0.0001):
+    score = log_validation_results(threshold)
+    scores[threshold] = score
+    print('Finish!')
+
+  import matplotlib.pyplot as plt
+  x = list(scores.keys())
+  precision = [scores[i]['unknown_precision'] for i in scores]
+  recall = [scores[i]['unknown_recall'] for i in scores]
+  f1 = [scores[i]['unknown_f1'] for i in scores]
+
+  plt.plot(x, precision, color='red', label='precision')
+  plt.plot(x, recall, color='green', label='recall')
+  plt.plot(x, f1, color='blue', label='f1')
+
+  plt.xlabel('Threshold')
+  plt.grid(linestyle='-.')
+  plt.legend()
+  
+  plt.show()
+
 
 # * * * * * * * * * * * * * * * * *
 # Program entrance
@@ -301,4 +404,13 @@ if __name__ == '__main__':
   for k in args.keys():
     INFO[k] = args[k]
   writer, logging = config.run(INFO)
-  run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
+  if os.environ['mode'] == 'train':
+    run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
+  elif os.environ['mode'] == 'evaluate':
+    logfiledir = "{}/{}-val.log".format(os.environ['logdir-base'], os.environ['run-id'])
+    logging.basicConfig(filename=logfiledir)
+    if not os.path.exists(args['model_path']):
+      print ('Error! No such model file')
+      exit(1)
+    evaluate(args['train_batch_size'], args['val_batch_size'], args['model_path'])
+  # run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)

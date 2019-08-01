@@ -40,6 +40,9 @@ def run(info):
   start = time.strftime('%m-%d-%Y-%H:%M:%S')
   gpu_number = info['gpus']
 
+  # Mode update
+  os.environ['mode'] = 'evaluate' if info['evaluate'] else 'train'
+
   # Device update
   if gpu_number > 0:
     GetDeviceSelection(query['gpus'], gpu_number)

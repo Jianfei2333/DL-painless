@@ -14,4 +14,9 @@ def GetArgParser():
                       help='Assign GPU numbers to use (default: 1)')
   parser.add_argument('--remark', type=str, default='debug',
                       help='Remark this run (default: `debug`)')
+  # For evaluator
+  parser.add_argument('--evaluate', default=False, action='store_true',
+                      help='Continue training (default False)')
+  parser.add_argument('--model-path', type=str, default='',
+                      help='Assign path of model to be evaluated (default ``, must be assigned)')
   return parser

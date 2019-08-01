@@ -287,6 +287,116 @@ def run(tb, vb, lr, epochs, writer):
   trainer.run(train_loader, max_epochs=epochs)
   pbar.close()
 
+# * * * * * * * * * * * * * * * * *
+# Evaluator
+# * * * * * * * * * * * * * * * * *
+def evaluate(tb, vb, modelpath):
+  device = os.environ['main-device']
+  logging.info('Evaluating program start!')
+  
+  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+
+  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = carrier(model)
+  model.load_state_dict(torch.load(modelpath))
+
+  class sigmoidmax(metric.Metric):
+    def __init__(self):
+      super(sigmoidmax, self).__init__()
+      self.values = torch.tensor([], dtype=torch.float)
+      self.inds = torch.tensor([], dtype=torch.int)
+      self.y = torch.tensor([], dtype=torch.int)
+    
+    def reset(self):
+      self.values = torch.tensor([])
+      self.inds = torch.tensor([])
+      self.y = torch.tensor([])
+      super(sigmoidmax, self).reset()
+    
+    def update(self, output):
+      y_pred, y = output
+      sigmoid = 1 / (1 + torch.exp(-y_pred))
+      values, inds = sigmoid.max(1)
+      # threshold = self.threshold[inds]
+      # prediction = torch.where(values>threshold, inds, torch.tensor([-1]).to(device=device))
+      # self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
+      self.values = torch.cat((self.values.to(device=device), values)).to(device=device)
+      self.inds = torch.cat((self.inds.type(torch.LongTensor).to(device=device), inds)).to(device=device)
+      self.y = torch.cat((self.y.type(torch.LongTensor).to(device=device), y.to(device=device)))
+
+    def compute(self):
+      return self.values, self.inds, self.y
+
+  val_metrics = {
+    'result': sigmoidmax()
+  }
+
+  val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
+  val_evaluator.run(val_loader)
+  metrics = val_evaluator.state.metrics
+  values, inds, y = metrics['result']
+  
+  def log_validation_results(threshold, checking_ind):
+
+    t = threshold[inds]
+
+    prediction = torch.where(values>t, inds, torch.tensor([-1]).to(device=device))
+    prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
+
+    avg_accuracy = Labels2Acc((prediction, y))
+    precision_recall = Labels2PrecisionRecall((prediction, y), val_loader.dataset.classes)
+    cmatrix = Labels2CMatrix((prediction, y), val_loader.dataset.classes)
+    unknown = precision_recall['pretty']['UNKNOWN']
+    unknown_f1 = 2/((1/unknown['Precision'])+(1/unknown['Recall']))
+    prompt = """
+      Threshold: \n{}
+
+      Avg accuracy: {:.4f}
+
+      Unknown precision: {:.4f}
+      Unknown recall: {:.4f}
+      Unknown F1 score: {:.4f}
+      
+      precision_recall: \n{}
+
+      confusion matrix: \n{}
+      """.format(threshold.cpu().numpy(),avg_accuracy,unknown['Precision'],unknown['Recall'],unknown_f1,precision_recall['pretty'],cmatrix['pretty'])
+    tqdm.write(prompt)
+    logging.info('\n'+prompt)
+    return {
+      'unknown_precision': unknown['Precision'],
+      'unknown_recall': unknown['Recall'],
+      'unknown_f1': unknown_f1
+    }
+
+  scores = {}
+
+  key = 0
+  threshold = torch.tensor([0.13, 0.13, 0.69, 0.19, 0.19, 0.27]).to(device=device)
+
+  for i in np.arange(0.01, 1.0, 0.01):
+    # threshold = torch.tensor([0.5]).repeat(len(train_loader.dataset.classes)).to(device=device)
+    threshold[key] = i
+    score = log_validation_results(threshold, key)
+    scores[i] = score
+    print('Finish!')
+
+  import matplotlib.pyplot as plt
+  x = list(scores.keys())
+  precision = [scores[i]['unknown_precision'] for i in scores]
+  recall = [scores[i]['unknown_recall'] for i in scores]
+  f1 = [scores[i]['unknown_f1'] for i in scores]
+
+  plt.plot(x, precision, color='red', label='precision')
+  plt.plot(x, recall, color='green', label='recall')
+  plt.plot(x, f1, color='blue', label='f1')
+
+  plt.xlabel('Threshold[{}]'.format(key))
+  plt.grid(linestyle='-.')
+  plt.legend()
+  
+  plt.show()
+
 
 # * * * * * * * * * * * * * * * * *
 # Program entrance
@@ -296,4 +406,12 @@ if __name__ == '__main__':
   for k in args.keys():
     INFO[k] = args[k]
   writer, logging = config.run(INFO)
-  run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
+  if os.environ['mode'] == 'train':
+    run(args['train_batch_size'], args['val_batch_size'], args['lr'], args['e'], writer)
+  elif os.environ['mode'] == 'evaluate':
+    logfiledir = "{}/{}-val.log".format(os.environ['logdir-base'], os.environ['run-id'])
+    logging.basicConfig(filename=logfiledir)
+    if not os.path.exists(args['model_path']):
+      print ('Error! No such model file')
+      exit(1)
+    evaluate(args['train_batch_size'], args['val_batch_size'], args['model_path'])
