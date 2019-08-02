@@ -202,6 +202,7 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
+    pbar.n = pbar.last_print_n = 0
 
   # Save model ever N epoch.
   save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
