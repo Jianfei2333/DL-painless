@@ -21,6 +21,8 @@ import os
 from tqdm import tqdm
 import logging
 import json
+from threading import Thread
+from itertools import cycle
 
 from Utils.Argparser import GetArgParser
 from Utils.Template import GetTemplate
@@ -34,7 +36,7 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-refold-mini',
+  'dataset': 'ISIC2019-openset-refold',
   'model-info': {
     'input-size': (300, 300)
   },
@@ -46,8 +48,8 @@ INFO = {
     },
   },
   'supportset-info': {
-    'name': 'Natural-mini',
-    'num-of-classes': 12
+    'name': 'Natural',
+    'num-of-classes': 388
   }
 }
 
@@ -138,20 +140,20 @@ def run(tb, vb, lr, epochs, writer):
   # Build iterable mix up batch loader
   it = iter(train_loader)
   sup_it = iter(support_train_loader)
-  mixup_batches = []
-  print('Prepare to make mixup dataset')
-  while True:
-    try:
-      batch = {}
-      batch['known'] = next(it)
-    except StopIteration:
-      break
-    try:
-      batch['support'] = next(sup_it)
-    except StopIteration:
-      sup_it = iter(support_train_loader)
-      batch['support'] = next(sup_it)
-    mixup_batches.append(batch)
+  # mixup_batches = []
+  # while True:
+  #   try:
+  #     batch = {}
+  #     batch['known'] = next(it)
+  #   except StopIteration:
+  #     break
+  #   try:
+  #     batch['support'] = next(sup_it)
+  #   except StopIteration:
+  #     sup_it = iter(support_train_loader)
+  #     batch['support'] = next(sup_it)
+  #   mixup_batches.append(batch)
+  mixup = zip(it, cycle(sup_it))
 
   # ------------------------------------
   # 2. Define model
@@ -237,19 +239,21 @@ def run(tb, vb, lr, epochs, writer):
     classes = input.shape[1]
     sigmoid = 1 / (1 + torch.exp(-input))
     part1 = 1-sigmoid[range(sigmoid.shape[0]), target]
-    part1 = (part1 * part1 * weights[target]).sum()
+    part1 = (torch.sqrt(part1) * weights[target]).sum()
     sigmoid[range(sigmoid.shape[0])] = 0
-    part2 = (sigmoid * sigmoid * weights).sum()
-    return part1 + _lambda*float(1/(classes-1))*part2
+    part2 = (torch.sqrt(sigmoid) * weights).sum()
+    return (part1 + _lambda*float(1/(classes-1))*part2) * classes
 
   def step(engine, batch):
     model.train()
     support_model.train()
-
+    
+    known, support = batch
+    
     _alpha1 = 1
     _alpha2 = 1
-    x_known, y_known = batch['known']
-    x_support, y_support = batch['support']
+    x_known, y_known = known
+    x_support, y_support = support
 
     x_known = x_known.to(device=device)
     y_known = y_known.to(device=device)
@@ -263,7 +267,7 @@ def run(tb, vb, lr, epochs, writer):
     known_cross_entropy = nn.functional.cross_entropy(known_scores, y_known, weights)
     known_membership = membership_loss(known_scores, y_known, weights)
 
-    loss = support_cross_entropy + known_cross_entropy * _alpha1 + known_membership * _alpha2
+    loss = (support_cross_entropy + known_cross_entropy * _alpha1 + known_membership * _alpha2)
 
     model.zero_grad()
     support_model.zero_grad()
@@ -288,7 +292,7 @@ def run(tb, vb, lr, epochs, writer):
   val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
   support_evaluator = create_supervised_evaluator(support_model, metrics=support_metrics, device=device)
 
-  desc = 'ITERATION - loss: {:.2f}|{:.2f}|{:.2f}|{:.2f}'
+  desc = 'ITERATION - loss: {:.4f}|{:.4f}|{:.4f}|{:.4f}'
   pbar = tqdm(
     initial=0, leave=False, total=len(train_loader),
     desc=desc.format(0,0,0,0)
@@ -407,7 +411,7 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # Run
-  trainer.run(mixup_batches, max_epochs=epochs)
+  trainer.run(mixup, max_epochs=epochs)
   pbar.close()
 
 

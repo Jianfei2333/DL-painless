@@ -2,11 +2,11 @@ import glob
 import os
 import numpy as np
 
-source = '/data0/Data/ISIC2019-openset-expand/Val'
-target = '/data0/Data/ISIC2019-openset-expand-mini/Val'
+source = '/data0/Data/ISIC2019-openset-refold/Val'
+target = '/data0/Data/ISIC2019-openset-refold-mini/Val'
 
 def makemini():
-  num_per_class=10
+  num_per_class= 5
   folders = glob.glob(source+'/*')
   if not os.path.exists(target):
     os.mkdir(target)

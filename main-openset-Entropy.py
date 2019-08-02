@@ -301,7 +301,7 @@ def evaluate(tb, vb, modelpath):
 
   model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
-  model.load_state_dict(torch.load(modelpath))
+  model.load_state_dict(torch.load(modelpath, map_location=device))
 
   class entropy(metric.Metric):
     def __init__(self):
@@ -328,6 +328,7 @@ def evaluate(tb, vb, modelpath):
       # self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
       self.entropy_rate = torch.cat((self.entropy_rate.to(device=device), entropy_rate)).to(device=device)
       self.y = torch.cat((self.y.type(torch.LongTensor).to(device=device), y.to(device=device)))
+      self.inds = torch.cat((self.inds.type(torch.LongTensor).to(device=device), inds.to(device=device)))
 
     def compute(self):
       return self.entropy_rate, self.inds, self.y
@@ -342,8 +343,11 @@ def evaluate(tb, vb, modelpath):
   entropy, inds, y = metrics['result']
   
   def log_validation_results(threshold):
-
-    prediction = torch.where(entropy>threshold, inds, torch.tensor([-1]).to(device=device))
+    
+    print(entropy)
+    print(threshold)
+    print(inds)
+    prediction = torch.where(entropy>threshold.item(), inds, torch.tensor([-1]).to(device=device))
     prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
 
     avg_accuracy = Labels2Acc((prediction, y))
@@ -363,7 +367,7 @@ def evaluate(tb, vb, modelpath):
       precision_recall: \n{}
 
       confusion matrix: \n{}
-      """.format(threshold.cpu().numpy(),avg_accuracy,unknown['Precision'],unknown['Recall'],unknown_f1,precision_recall['pretty'],cmatrix['pretty'])
+      """.format(threshold,avg_accuracy,unknown['Precision'],unknown['Recall'],unknown_f1,precision_recall['pretty'],cmatrix['pretty'])
     tqdm.write(prompt)
     logging.info('\n'+prompt)
     return {
