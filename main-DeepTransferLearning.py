@@ -21,7 +21,6 @@ import os
 from tqdm import tqdm
 import logging
 import json
-from threading import Thread
 from itertools import cycle
 
 from Utils.Argparser import GetArgParser
@@ -140,20 +139,7 @@ def run(tb, vb, lr, epochs, writer):
   # Build iterable mix up batch loader
   it = iter(train_loader)
   sup_it = iter(support_train_loader)
-  # mixup_batches = []
-  # while True:
-  #   try:
-  #     batch = {}
-  #     batch['known'] = next(it)
-  #   except StopIteration:
-  #     break
-  #   try:
-  #     batch['support'] = next(sup_it)
-  #   except StopIteration:
-  #     sup_it = iter(support_train_loader)
-  #     batch['support'] = next(sup_it)
-  #   mixup_batches.append(batch)
-  mixup = zip(it, cycle(sup_it))
+  mixup_batches = zip(it, cycle(sup_it))
 
   # ------------------------------------
   # 2. Define model
@@ -202,8 +188,6 @@ def run(tb, vb, lr, epochs, writer):
     def update(self, output):
       y_pred, y = output
       softmax = torch.exp(y_pred) / torch.exp(y_pred).sum(1)[:, None]
-      # sigmoid = 1 / (1 + torch.exp(-y_pred))
-      # values, inds = sigmoid.max(1)
       values, inds = softmax.max(1)
       prediction = torch.where(values>self.threshold[inds], inds, torch.tensor([-1]).to(device=device))
       self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
@@ -212,17 +196,6 @@ def run(tb, vb, lr, epochs, writer):
 
     def compute(self):
       return self.prediction, self.y
-
-  # def val_pred_transform(output):
-  #   y_pred, y = output
-  #   new_y_pred = torch.zeros((y_pred.shape[0], INFO['dataset-info']['num-of-classes']+1)).to(device=device)
-  #   for ind, c in enumerate(train_loader.dataset.classes):
-  #     new_col = val_loader.dataset.class_to_idx[c]
-  #     new_y_pred[:, new_col] += y_pred[:, ind]
-  #   ukn_ind = val_loader.dataset.class_to_idx['UNKNOWN']
-  #   import math
-  #   new_y_pred[:, ukn_ind] = -math.inf
-  #   return new_y_pred, y
 
   val_metrics = {
     'accuracy': MetricsLambda(Labels2Acc, DeepTransPrediction()),
@@ -239,19 +212,19 @@ def run(tb, vb, lr, epochs, writer):
     classes = input.shape[1]
     sigmoid = 1 / (1 + torch.exp(-input))
     part1 = 1-sigmoid[range(sigmoid.shape[0]), target]
-    part1 = (torch.sqrt(part1) * weights[target]).sum()
+    part1 = (part1 * part1 * weights[target]).sum()
     sigmoid[range(sigmoid.shape[0])] = 0
-    part2 = (torch.sqrt(sigmoid) * weights).sum()
-    return (part1 + _lambda*float(1/(classes-1))*part2) * classes
+    part2 = (sigmoid * sigmoid * weights).sum()
+    return part1 + _lambda*float(1/(classes-1))*part2
 
   def step(engine, batch):
     model.train()
     support_model.train()
-    
-    known, support = batch
-    
+
     _alpha1 = 1
     _alpha2 = 1
+
+    known, support = batch
     x_known, y_known = known
     x_support, y_support = support
 
@@ -267,7 +240,7 @@ def run(tb, vb, lr, epochs, writer):
     known_cross_entropy = nn.functional.cross_entropy(known_scores, y_known, weights)
     known_membership = membership_loss(known_scores, y_known, weights)
 
-    loss = (support_cross_entropy + known_cross_entropy * _alpha1 + known_membership * _alpha2)
+    loss = support_cross_entropy + known_cross_entropy * _alpha1 + known_membership * _alpha2
 
     model.zero_grad()
     support_model.zero_grad()
@@ -292,7 +265,7 @@ def run(tb, vb, lr, epochs, writer):
   val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
   support_evaluator = create_supervised_evaluator(support_model, metrics=support_metrics, device=device)
 
-  desc = 'ITERATION - loss: {:.4f}|{:.4f}|{:.4f}|{:.4f}'
+  desc = 'ITERATION - loss: {:.2f}|{:.2f}|{:.2f}|{:.2f}'
   pbar = tqdm(
     initial=0, leave=False, total=len(train_loader),
     desc=desc.format(0,0,0,0)
@@ -300,14 +273,6 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 7. Create event hooks
-
-  @trainer.on(Events.ITERATION_STARTED)
-  def make_process_bar(engine):
-    # pbar = tqdm(
-    #   initial=0, leave=False, total=len(train_loader),
-    #   desc=desc.format(0,0,0,0)
-    # )
-    pbar.refresh()
 
   @trainer.on(Events.ITERATION_COMPLETED)
   def log_training_loss(engine):
@@ -318,20 +283,25 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(o['Rce_loss'], o['Tce_loss'], o['Tm_loss'], o['total_loss'])
       pbar.update(log_interval)
 
+  @trainer.on(Events.EPOCH_STARTED)
+  def rebuild_dataloader(engine):
+    pbar.clear()
+    print('Rebuild dataloader!')
+    it = iter(train_loader)
+    sup_it = iter(support_train_loader)
+    engine.state.dataloader = zip(it, cycle(sup_it))
+
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_training_results(engine):
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
     metrics = train_evaluator.state.metrics
     avg_accuracy = metrics['accuracy']
-    # avg_loss = metrics['loss']
     precision_recall = metrics['precision_recall']
     cmatrix = metrics['cmatrix']
     prompt = """
       Id: {}
-
       Training Results - Epoch: {}
-
       Avg accuracy: {:.4f}
       
       precision_recall: \n{}
@@ -342,10 +312,7 @@ def run(tb, vb, lr, epochs, writer):
     logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
-  
+
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_support_results(engine):
     pbar.clear()
@@ -358,11 +325,8 @@ def run(tb, vb, lr, epochs, writer):
 
     prompt = """
     Id: {}
-
     Support set Results - Epoch: {}
-
     Avg accuracy: {:.4f}
-
     precision_recall: \n{}
     """.format(os.environ['run-id'], engine.state.epoch, avg_accuracy, precision_recall['pretty'])
     tqdm.write(prompt)
@@ -385,11 +349,8 @@ def run(tb, vb, lr, epochs, writer):
     print(unknown)
     prompt = """
       Id: {}
-
       Validating Results - Epoch: {}
-
       Avg accuracy: {:.4f}
-
       Unknown precision: {:.4f}
       Unknown recall: {:.4f}
       
@@ -401,7 +362,6 @@ def run(tb, vb, lr, epochs, writer):
     logging.info('\n'+prompt)
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Loss', {'Val Loss': avg_loss}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg Precision': precision_recall['data'][0, -1], 'Val avg Recall': precision_recall['data'][1, -1]}, engine.state.epoch)
     writer.add_scalars('Unknown/Score', {'Unknown Precision': unknown['Precision'], 'Unknown Recall': unknown['Recall']}, engine.state.epoch)
     pbar.n = pbar.last_print_n = 0
@@ -411,7 +371,7 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # Run
-  trainer.run(mixup, max_epochs=epochs)
+  trainer.run(mixup_batches, max_epochs=epochs)
   pbar.close()
 
 

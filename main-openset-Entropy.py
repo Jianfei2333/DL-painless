@@ -35,15 +35,17 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-refold',
+  'dataset': 'ISIC2019-openset-2',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
     'num-of-classes': 6,
     'normalization': {
-      'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
-      'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
+      # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
+      # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
+      'mean': [0.5742, 0.5741, 0.5742],
+      'std': [0.1183, 0.1181, 0.1183]
     },
     # 'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
   }
@@ -79,6 +81,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
     ]), 
     'val': T.Compose([
       T.Resize(input_size), # 放大
+      # T.CenterCrop(input_size),
       T.ToTensor(),
       normalize
     ])
@@ -299,9 +302,11 @@ def evaluate(tb, vb, modelpath):
   
   train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
 
-  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
-  model = carrier(model)
-  model.load_state_dict(torch.load(modelpath, map_location=device))
+  # model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  # model = carrier(model)
+  # model.load_state_dict(torch.load(modelpath, map_location=device))
+  model = torch.load(modelpath, map_location=device)['model']
+
 
   class entropy(metric.Metric):
     def __init__(self):
@@ -344,10 +349,10 @@ def evaluate(tb, vb, modelpath):
   
   def log_validation_results(threshold):
     
-    print(entropy)
-    print(threshold)
-    print(inds)
-    prediction = torch.where(entropy>threshold.item(), inds, torch.tensor([-1]).to(device=device))
+    # print(entropy)
+    # print(threshold)
+    # print(inds)
+    prediction = torch.where(entropy<threshold, inds, torch.tensor([-1]).to(device=device))
     prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
 
     avg_accuracy = Labels2Acc((prediction, y))
@@ -373,12 +378,15 @@ def evaluate(tb, vb, modelpath):
     return {
       'unknown_precision': unknown['Precision'],
       'unknown_recall': unknown['Recall'],
-      'unknown_f1': unknown_f1
+      'unknown_f1': unknown_f1,
+      'mean_recall': precision_recall['pretty']['mean']['Recall']
     }
 
   scores = {}
 
-  for threshold in np.arange(0.0001, 1.0, 0.0001):
+  # test1 = log_validation_results(0.5)
+
+  for threshold in np.arange(0.5, 1.0, 0.0001):
     score = log_validation_results(threshold)
     scores[threshold] = score
     print('Finish!')
@@ -388,10 +396,12 @@ def evaluate(tb, vb, modelpath):
   precision = [scores[i]['unknown_precision'] for i in scores]
   recall = [scores[i]['unknown_recall'] for i in scores]
   f1 = [scores[i]['unknown_f1'] for i in scores]
+  mean_recall = [scores[i]['mean_recall'] for i in scores]
 
   plt.plot(x, precision, color='red', label='precision')
   plt.plot(x, recall, color='green', label='recall')
   plt.plot(x, f1, color='blue', label='f1')
+  plt.plot(x, mean_recall, color='yellow', label='mean_recall')
 
   plt.xlabel('Threshold')
   plt.grid(linestyle='-.')
