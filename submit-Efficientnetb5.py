@@ -181,7 +181,7 @@ def run(tb, vb, lr, epochs, writer):
   # Compute metrics on train data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_training_results(engine):
-    pbar.clear()
+    pbar.refresh()
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
     metrics = train_evaluator.state.metrics
