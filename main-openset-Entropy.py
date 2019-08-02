@@ -35,17 +35,17 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-2',
+  'dataset': 'ISIC2019-openset-refold',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
     'num-of-classes': 6,
     'normalization': {
-      # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
-      # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
-      'mean': [0.5742, 0.5741, 0.5742],
-      'std': [0.1183, 0.1181, 0.1183]
+      'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
+      'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
+      # 'mean': [0.5742, 0.5741, 0.5742],
+      # 'std': [0.1183, 0.1181, 0.1183]
     },
     # 'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
   }
@@ -302,10 +302,10 @@ def evaluate(tb, vb, modelpath):
   
   train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
 
-  # model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
-  # model = carrier(model)
-  # model.load_state_dict(torch.load(modelpath, map_location=device))
-  model = torch.load(modelpath, map_location=device)['model']
+  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = carrier(model)
+  model.load_state_dict(torch.load(modelpath, map_location=device))
+  # model = torch.load(modelpath, map_location=device)['model']
 
 
   class entropy(metric.Metric):
@@ -386,7 +386,7 @@ def evaluate(tb, vb, modelpath):
 
   # test1 = log_validation_results(0.5)
 
-  for threshold in np.arange(0.5, 1.0, 0.0001):
+  for threshold in np.arange(0.0001, 1.0, 0.0001):
     score = log_validation_results(threshold)
     scores[threshold] = score
     print('Finish!')
