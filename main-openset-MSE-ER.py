@@ -170,7 +170,7 @@ def run(tb, vb, lr, epochs, writer):
 
     def forward(self, input, target):
       target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
-      return nn.functional.mse_loss(input, target_onehot)
+      return nn.functional.mse_loss(input, target_onehot, reduction='sum')
 
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=0.99):

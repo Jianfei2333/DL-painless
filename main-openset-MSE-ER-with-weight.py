@@ -171,8 +171,8 @@ def run(tb, vb, lr, epochs, writer):
 
     def forward(self, input, target):
       target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
-      if self.weight is not None:
-        target_onehot = target_onehot * self.weight * input.shape[1]
+      if self.class_weights is not None:
+        target_onehot = target_onehot * self.class_weights * input.shape[1]
       return nn.functional.mse_loss(input, target_onehot, reduction='sum')
 
   class EntropyPrediction(metric.Metric):
