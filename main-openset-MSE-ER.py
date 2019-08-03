@@ -166,11 +166,16 @@ def run(tb, vb, lr, epochs, writer):
   class LabelMSELoss(nn.Module):
     def __init__(self, weight=None):
       super(LabelMSELoss, self).__init__()
-      self.class_weights = weight
+      self.class_weights = weight.to(device=device)
 
     def forward(self, input, target):
       target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
-      return nn.functional.mse_loss(input, target_onehot, reduction='sum')
+      mse = (input - target_onehot) ** 2
+      if self.class_weights is not None:
+        weights = self.class_weights[target] * input.shape[1]
+        return (mse.sum(1) * weights).sum()
+      else:
+        return mse.sum()
 
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=0.5):

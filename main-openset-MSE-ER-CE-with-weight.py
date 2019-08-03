@@ -171,9 +171,12 @@ def run(tb, vb, lr, epochs, writer):
 
     def forward(self, input, target):
       target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
+      mse = (input - target_onehot) ** 2
       if self.class_weights is not None:
-        target_onehot = target_onehot * self.class_weights * input.shape[1]
-      return nn.functional.mse_loss(input, target_onehot, reduction='sum')
+        weights = self.class_weights[target] * input.shape[1]
+        return (mse.sum(1) * weights).sum()
+      else:
+        return mse.sum()
 
   class MixupLoss(nn.Module):
     def __init__(self, weight=None):
@@ -181,12 +184,9 @@ def run(tb, vb, lr, epochs, writer):
       self.class_weights = weight.to(device=device)
 
     def forward(self, input, target):
-      target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
-      if self.class_weights is not None:
-        target_onehot = target_onehot * self.class_weights * input.shape[1]
-        return nn.functional.mse_loss(input, target_onehot, reduction='sum') + nn.functional.cross_entropy(input, target, weight=self.class_weights, reduction='sum')
-      else:
-        return nn.functional.mse_loss(input, target_onehot, reduction='sum') + nn.functional.cross_entropy(input, target, reduction='sum')
+      mse = LabelMSELoss(weight=self.class_weights)
+      ce = nn.CrossEntropyLoss(weight=self.class_weights)
+      return mse(input, target) + ce(input, target)
 
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=0.5):
