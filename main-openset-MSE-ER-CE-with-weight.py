@@ -173,7 +173,7 @@ def run(tb, vb, lr, epochs, writer):
       target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
       if self.weight is not None:
         target_onehot = target_onehot * self.weight * input.shape[1]
-      return nn.functional.mse_loss(input, target_onehot)
+      return nn.functional.mse_loss(input, target_onehot, reduction='sum')
 
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=0.99):
@@ -204,7 +204,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(LabelMSELoss()),
+    'loss': Loss(LabelMSELoss(weight=weights))+Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
@@ -217,7 +217,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, LabelMSELoss(), device=device)
+  trainer = create_supervised_trainer(model, optimizer, LabelMSELoss(weight=weights)+nn.CrossEntropyLoss(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
