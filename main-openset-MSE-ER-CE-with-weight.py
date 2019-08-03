@@ -175,6 +175,19 @@ def run(tb, vb, lr, epochs, writer):
         target_onehot = target_onehot * self.class_weights * input.shape[1]
       return nn.functional.mse_loss(input, target_onehot, reduction='sum')
 
+  class MixupLoss(nn.Module):
+    def __init__(self, weight=None):
+      super(MixupLoss, self).__init__()
+      self.class_weights = weight.to(device=device)
+
+    def forward(self, input, target):
+      target_onehot = to_onehot(target, num_classes=input.shape[1]).to(device=device)
+      if self.class_weights is not None:
+        target_onehot = target_onehot * self.class_weights * input.shape[1]
+        return nn.functional.mse_loss(input, target_onehot, reduction='sum') + nn.functional.cross_entropy(input, target, weight=self.class_weights, reduction='sum')
+      else:
+        return nn.functional.mse_loss(input, target_onehot, reduction='sum') + nn.functional.cross_entropy(input, target, reduction='sum')
+
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=0.99):
       super(EntropyPrediction, self).__init__()
@@ -204,7 +217,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(LabelMSELoss(weight=weights))+Loss(nn.CrossEntropyLoss(weight=weights)),
+    'loss': Loss(MixupLoss(weight=weights))+Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
@@ -217,7 +230,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, LabelMSELoss(weight=weights)+nn.CrossEntropyLoss(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, MixupLoss(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
