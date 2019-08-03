@@ -243,10 +243,14 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(engine.state.output)
       pbar.update(log_interval)
 
+  @trainer.on(Events.EPOCH_STARTED)
+  def refresh_pbar(engine):
+    pbar.refresh()
+    pbar.n = pbar.last_print_n = 0
+
   # Compute metrics on train data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_training_results(engine):
-    pbar.refresh()
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
     metrics = train_evaluator.state.metrics
@@ -266,12 +270,12 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    # writer.add_scalars('Aggregate/Score', {'Train avg precision': precision_recall['data'][0, -1], 'Train avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    # pbar.n = pbar.last_print_n = 0
   
   # Compute metrics on val data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_validation_results(engine):
+    pbar.clear()
+    print('* - * - * - * - * - * - * - * - * - * - * - * - *')
     print ('Checking on validation set.')
     val_evaluator.run(val_loader)
     metrics = val_evaluator.state.metrics
@@ -289,7 +293,6 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    pbar.n = pbar.last_print_n = 0
 
   # Save model ever N epoch.
   save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
