@@ -183,7 +183,7 @@ def run(tb, vb, lr, epochs, writer):
       self.y = torch.tensor([], dtype=torch.int)
     
     def reset(self):
-      self.threshold = 0.5
+      # self.threshold = 0.5
       self.prediction = torch.tensor([])
       self.y = torch.tensor([])
       super(EntropyPrediction, self).reset()
