@@ -17,6 +17,7 @@ from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, M
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.handlers import ModelCheckpoint
 from ignite.utils import to_onehot
+from ignite.contrib.handlers import CustomPeriodicEvent
 
 import os
 from tqdm import tqdm
@@ -178,8 +179,16 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(engine.state.output)
       pbar.update(log_interval)
 
-  # Compute metrics on train data on each epoch completed.
+  # Refresh Process bar.
   @trainer.on(Events.EPOCH_COMPLETED)
+  def refresh_pbar(engine):
+    print ('Epoch {} completed!'.format(engine.state.epoch))
+    pbar.refresh()
+    pbar.n = pbar.last_print_n = 0
+
+  # Compute metrics on train data on each epoch completed.
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     pbar.refresh()
     print ('Checking on training set.')
@@ -205,7 +214,7 @@ def run(tb, vb, lr, epochs, writer):
     pbar.n = pbar.last_print_n = 0
 
   # Save model ever N epoch.
-  save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
+  save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=50, n_saved=2)
   trainer.add_event_handler(Events.EPOCH_COMPLETED, save_model_handler, {'model': model})
 
   # Update learning-rate due to scheduler.
