@@ -176,14 +176,14 @@ def run(tb, vb, lr, epochs, writer):
       return nn.functional.mse_loss(input, target_onehot)
 
   class EntropyPrediction(metric.Metric):
-    def __init__(self, threshold=0.3):
+    def __init__(self, threshold=0.99):
       super(EntropyPrediction, self).__init__()
       self.threshold = threshold
       self.prediction = torch.tensor([], dtype=torch.int)
       self.y = torch.tensor([], dtype=torch.int)
     
     def reset(self):
-      self.threshold = 0.3
+      self.threshold = 0.99
       self.prediction = torch.tensor([])
       self.y = torch.tensor([])
       super(EntropyPrediction, self).reset()
