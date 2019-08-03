@@ -188,6 +188,7 @@ def run(tb, vb, lr, epochs, writer):
 
   # Compute metrics on train data on each epoch completed.
   cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
   @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     pbar.refresh()
