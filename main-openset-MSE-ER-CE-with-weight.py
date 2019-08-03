@@ -189,14 +189,14 @@ def run(tb, vb, lr, epochs, writer):
         return nn.functional.mse_loss(input, target_onehot, reduction='sum') + nn.functional.cross_entropy(input, target, reduction='sum')
 
   class EntropyPrediction(metric.Metric):
-    def __init__(self, threshold=0.99):
+    def __init__(self, threshold=0.5):
       super(EntropyPrediction, self).__init__()
       self.threshold = threshold
       self.prediction = torch.tensor([], dtype=torch.int)
       self.y = torch.tensor([], dtype=torch.int)
     
     def reset(self):
-      self.threshold = 0.99
+      self.threshold = 0.5
       self.prediction = torch.tensor([])
       self.y = torch.tensor([])
       super(EntropyPrediction, self).reset()
@@ -223,9 +223,9 @@ def run(tb, vb, lr, epochs, writer):
   }
 
   val_metrics = {
-    'accuracy': MetricsLambda(Labels2Acc, EntropyPrediction()),
-    'precision_recall': MetricsLambda(Labels2PrecisionRecall, EntropyPrediction(), val_loader.dataset.classes),
-    'cmatrix': MetricsLambda(Labels2CMatrix, EntropyPrediction(), val_loader.dataset.classes)
+    'accuracy': MetricsLambda(Labels2Acc, EntropyPrediction(1.0)),
+    'precision_recall': MetricsLambda(Labels2PrecisionRecall, EntropyPrediction(1.0), val_loader.dataset.classes),
+    'cmatrix': MetricsLambda(Labels2CMatrix, EntropyPrediction(1.0), val_loader.dataset.classes)
   }
   
   # ------------------------------------
