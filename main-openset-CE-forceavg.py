@@ -172,7 +172,7 @@ def run(tb, vb, lr, epochs, writer):
     def forward(self, input, target):
       ce = nn.functional.cross_entropy(input, target, weight=self.class_weights)
       avg = (input ** 2).sum() - (input[range(input.shape[0]), target] ** 2).sum()
-      print(ce, avg/input.shape[0])
+      # print(ce, avg/input.shape[0])
       return ce + avg/input.shape[0]
 
   class EntropyPrediction(metric.Metric):
