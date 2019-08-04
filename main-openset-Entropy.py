@@ -17,11 +17,13 @@ from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, M
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.handlers import ModelCheckpoint
 from ignite.utils import to_onehot
+from ignite.contrib.handlers import CustomPeriodicEvent
 
 import os
 from tqdm import tqdm
 import logging
 import json
+import glob
 
 from Utils.Argparser import GetArgParser
 from Utils.Template import GetTemplate
@@ -35,17 +37,17 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-refold',
+  'dataset': 'ISIC2019-openset-2',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
     'num-of-classes': 6,
     'normalization': {
-      'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
-      'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
-      # 'mean': [0.5742, 0.5741, 0.5742],
-      # 'std': [0.1183, 0.1181, 0.1183]
+      # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
+      # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
+      'mean': [0.5742, 0.5741, 0.5742],
+      'std': [0.1183, 0.1181, 0.1183]
     },
     # 'known-classes': ['BCC', 'BKL', 'MEL', 'NV', 'VASC']
   }
@@ -108,7 +110,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
 
   train_loader = DataLoader(train_dset, batch_size=train_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
   train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
-  val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(val_len)), **kwargs)
+  val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(val_len)), **kwargs)
 
   return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping
 
@@ -138,7 +140,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 2. Define model
-  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
   
   # ------------------------------------
@@ -235,10 +237,14 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(engine.state.output)
       pbar.update(log_interval)
 
+  @trainer.on(Events.EPOCH_STARTED)
+  def refresh_pbar(engine):
+    pbar.refresh()
+    pbar.n = pbar.last_print_n = 0
+
   # Compute metrics on train data on each epoch completed.
   @trainer.on(Events.EPOCH_COMPLETED)
   def log_training_results(engine):
-    pbar.refresh()
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
     metrics = train_evaluator.state.metrics
@@ -260,8 +266,12 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
   
   # Compute metrics on val data on each epoch completed.
-  @trainer.on(Events.EPOCH_COMPLETED)
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_validation_results(engine):
+    pbar.clear()
+    print ('* - * - * - * - * - * - * - * - * - * - * - * - *')
     print ('Checking on validation set.')
     val_evaluator.run(val_loader)
     metrics = val_evaluator.state.metrics
@@ -279,7 +289,6 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
-    pbar.n = pbar.last_print_n = 0
 
   # Save model ever N epoch.
   save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
@@ -302,11 +311,15 @@ def evaluate(tb, vb, modelpath):
   
   train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
 
-  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
-  model = carrier(model)
-  model.load_state_dict(torch.load(modelpath, map_location=device))
-  # model = torch.load(modelpath, map_location=device)['model']
+  model_paths = glob.glob(modelpath+'/*')
+  models = []
 
+  for modelpath in model_paths:
+    model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+    model = carrier(model)
+    model.load_state_dict(torch.load(modelpath, map_location=device))
+    models.append(model)
+    # model = torch.load(modelpath, map_location=device)['model']
 
   class entropy(metric.Metric):
     def __init__(self):
@@ -315,99 +328,147 @@ def evaluate(tb, vb, modelpath):
       self.entropy_rate = torch.tensor([], dtype=torch.float)
       self.inds = torch.tensor([], dtype=torch.int)
       self.y = torch.tensor([], dtype=torch.int)
+      self.softmax = torch.tensor([], dtype=torch.float)
     
     def reset(self):
       # self.values = torch.tensor([])
-      self.entropy_rate = torch.tensor([])
-      self.inds = torch.tensor([])
-      self.y = torch.tensor([])
+      self.entropy_rate = torch.tensor([], dtype=torch.float)
+      self.inds = torch.tensor([], dtype=torch.int)
+      self.y = torch.tensor([], dtype=torch.int)
+      self.softmax = torch.tensor([], dtype=torch.float)
       super(entropy, self).reset()
     
     def update(self, output):
       y_pred, y = output
       softmax = torch.exp(y_pred) / torch.exp(y_pred).sum(1)[:, None]
+      # print(softmax)
       entropy_base = math.log(y_pred.shape[1])
       entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
       _, inds = softmax.max(1)
       # prediction = torch.where(entropy>self.threshold, inds, torch.tensor([-1]).to(device=device))
       # self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
+      self.softmax = torch.cat((self.softmax.to(device=device), softmax)).to(device=device)
       self.entropy_rate = torch.cat((self.entropy_rate.to(device=device), entropy_rate)).to(device=device)
       self.y = torch.cat((self.y.type(torch.LongTensor).to(device=device), y.to(device=device)))
       self.inds = torch.cat((self.inds.type(torch.LongTensor).to(device=device), inds.to(device=device)))
 
     def compute(self):
-      return self.entropy_rate, self.inds, self.y
+      return self.softmax, self.entropy_rate, self.inds, self.y
 
   val_metrics = {
     'result': entropy()
   }
 
-  val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
-  val_evaluator.run(val_loader)
-  metrics = val_evaluator.state.metrics
-  entropy, inds, y = metrics['result']
-  
-  def log_validation_results(threshold):
-    
+  metric_list = []
+  k = 0
+  for model in models:
+    val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
+    val_evaluator.run(val_loader)
+    metrics = val_evaluator.state.metrics['result']
+    softmax, er, inds, y_true = metrics
+    m = {
+      'model': model_paths[k],
+      'softmax': softmax,
+      'er': er,
+      'inds': inds,
+      'y': y_true
+    }
+    k += 1
+    # print(m)
+    metric_list.append(m)
+    print('Finish 1!')
+
+  def log_validation_results(threshold, metric):
+    # _, entropy_rate, inds, y = metric
+    name = metric['model']
+    entropy_rate = metric['er']
+    inds = metric['inds']
+    y = metric['y']
     # print(entropy)
     # print(threshold)
     # print(inds)
-    prediction = torch.where(entropy<threshold, inds, torch.tensor([-1]).to(device=device))
+    prediction = torch.where(entropy_rate<threshold, inds, torch.tensor([-1]).to(device=device))
     prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
 
     avg_accuracy = Labels2Acc((prediction, y))
     precision_recall = Labels2PrecisionRecall((prediction, y), val_loader.dataset.classes)
     cmatrix = Labels2CMatrix((prediction, y), val_loader.dataset.classes)
-    unknown = precision_recall['pretty']['UNKNOWN']
-    unknown_f1 = 2/((1/unknown['Precision'])+(1/unknown['Recall']))
+    prompt = """
+      Model: {}
+      Threshold: {}
+
+      Avg accuracy: {:.4f}
+
+      precision_recall: \n{}
+
+      confusion matrix: \n{}
+      """.format(name, threshold,avg_accuracy,precision_recall['pretty'],cmatrix['pretty'])
+    tqdm.write(prompt)
+    logging.info('\n'+prompt)
+    return {
+      'mean_recall': precision_recall['pretty']['mean']['Recall']
+    }
+
+  def get_mean_softmax(metric_list):
+    mean_softmax = None
+    for metrics in metric_list:
+      softmax = metrics['softmax']
+      if mean_softmax is not None:
+        mean_softmax = mean_softmax + softmax
+      else:
+        mean_softmax = softmax
+    return mean_softmax / len(metric_list)
+
+  def log_mean_results(threshold, softmax, y_true):
+    entropy_base = math.log(softmax.shape[1])
+    entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
+    print(entropy_rate)
+    _, inds = softmax.max(1)
+    prediction = torch.where(entropy_rate<threshold, inds, torch.tensor([-1]).to(device=device))
+    prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
+
+    avg_accuracy = Labels2Acc((prediction, y_true))
+    precision_recall = Labels2PrecisionRecall((prediction, y_true), val_loader.dataset.classes)
+    cmatrix = Labels2CMatrix((prediction, y_true), val_loader.dataset.classes)
+
     prompt = """
       Threshold: \n{}
 
       Avg accuracy: {:.4f}
 
-      Unknown precision: {:.4f}
-      Unknown recall: {:.4f}
-      Unknown F1 score: {:.4f}
-
       precision_recall: \n{}
 
       confusion matrix: \n{}
-      """.format(threshold,avg_accuracy,unknown['Precision'],unknown['Recall'],unknown_f1,precision_recall['pretty'],cmatrix['pretty'])
-    tqdm.write(prompt)
-    logging.info('\n'+prompt)
-    return {
-      'unknown_precision': unknown['Precision'],
-      'unknown_recall': unknown['Recall'],
-      'unknown_f1': unknown_f1,
-      'mean_recall': precision_recall['pretty']['mean']['Recall']
-    }
+      """.format(threshold,avg_accuracy,precision_recall['pretty'],cmatrix['pretty'])
+    print (prompt)
 
   scores = {}
 
-  # test1 = log_validation_results(0.5)
+  # test1 = log_validation_results(1.0)
 
-  for threshold in np.arange(0.0001, 1.0, 0.0001):
-    score = log_validation_results(threshold)
-    scores[threshold] = score
-    print('Finish!')
+  threshold = 0.985
 
-  import matplotlib.pyplot as plt
-  x = list(scores.keys())
-  precision = [scores[i]['unknown_precision'] for i in scores]
-  recall = [scores[i]['unknown_recall'] for i in scores]
-  f1 = [scores[i]['unknown_f1'] for i in scores]
-  mean_recall = [scores[i]['mean_recall'] for i in scores]
+  for metrics in metric_list:
+    score = log_validation_results(threshold, metrics)
 
-  plt.plot(x, precision, color='red', label='precision')
-  plt.plot(x, recall, color='green', label='recall')
-  plt.plot(x, f1, color='blue', label='f1')
-  plt.plot(x, mean_recall, color='yellow', label='mean_recall')
+  log_mean_results(threshold, get_mean_softmax(metric_list), metric_list[0]['y'])
 
-  plt.xlabel('Threshold')
-  plt.grid(linestyle='-.')
-  plt.legend()
+  # for threshold in np.arange(0.9, 1.0, 0.001):
+  #   score = log_validation_results(threshold)
+  #   scores[threshold] = score
+  #   print('Finish!')
+
+  # import matplotlib.pyplot as plt
+  # x = list(scores.keys())
+  # mean_recall = [scores[i]['mean_recall'] for i in scores]
+
+  # plt.plot(x, mean_recall, color='#bfd2d5', label='mean_recall')
+
+  # plt.xlabel('Threshold')
+  # plt.grid(linestyle='-.')
+  # plt.legend()
   
-  plt.show()
+  # plt.show()
 
 
 # * * * * * * * * * * * * * * * * *
