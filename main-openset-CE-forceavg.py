@@ -250,7 +250,9 @@ def run(tb, vb, lr, epochs, writer):
     pbar.n = pbar.last_print_n = 0
 
   # Compute metrics on train data on each epoch completed.
-  @trainer.on(Events.EPOCH_COMPLETED)
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
