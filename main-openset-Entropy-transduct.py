@@ -37,12 +37,12 @@ from Utils.Fakedata import get_fakedataloader
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-2',
+  'dataset': 'ISIC2019-openset-2-transduct0',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 6,
+    'num-of-classes': 7,
     'normalization': {
       # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
       # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
@@ -133,6 +133,8 @@ def run(tb, vb, lr, epochs, writer):
   # 1. Define dataloader
   train_loader, train4val_loader, val_loader, num_of_images, mapping, _ = get_dataloaders(tb, vb)
   # train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
+  # Adjust weights of unknown
+  num_of_images[6] += int(sum(num_of_images)/len(num_of_images))
   weights = (1/num_of_images)/((1/num_of_images).sum().item())
   # weights = (1/num_of_images)/(1/num_of_images + 1/(num_of_images.sum().item()-num_of_images))
   weights = weights.to(device=device)
