@@ -17,6 +17,7 @@ from ignite.metrics import Accuracy, Loss, Recall, Precision, ConfusionMatrix, M
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.handlers import ModelCheckpoint
 from ignite.utils import to_onehot
+from ignite.contrib.handlers import CustomPeriodicEvent
 
 import os
 from tqdm import tqdm
@@ -272,7 +273,9 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
   
   # Compute metrics on val data on each epoch completed.
-  @trainer.on(Events.EPOCH_COMPLETED)
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_validation_results(engine):
     pbar.clear()
     print('* - * - * - * - * - * - * - * - * - * - * - * - *')
