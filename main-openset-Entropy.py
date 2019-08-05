@@ -57,9 +57,6 @@ INFO = {
 # Define the dataloader
 # * * * * * * * * * * * * * * * * *
 def get_dataloaders(train_batchsize, val_batchsize):
-  """
-  Dataloader: ISIC2018-expand.
-  """
   kwargs={
     'num_workers': 20,
     'pin_memory': True
@@ -109,10 +106,12 @@ def get_dataloaders(train_batchsize, val_batchsize):
   val_len = val_dset.__len__()
 
   train_loader = DataLoader(train_dset, batch_size=train_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
-  train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
+  train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(train_len)), **kwargs)
   val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(val_len)), **kwargs)
 
-  return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping
+  imgs = np.array(val_dset.imgs)
+
+  return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping, imgs
 
 # * * * * * * * * * * * * * * * * *
 # Main loop
@@ -132,7 +131,7 @@ def run(tb, vb, lr, epochs, writer):
 
   # ------------------------------------
   # 1. Define dataloader
-  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+  train_loader, train4val_loader, val_loader, num_of_images, mapping, _ = get_dataloaders(tb, vb)
   # train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
   weights = (1/num_of_images)/((1/num_of_images).sum().item())
   # weights = (1/num_of_images)/(1/num_of_images + 1/(num_of_images.sum().item()-num_of_images))
@@ -170,14 +169,14 @@ def run(tb, vb, lr, epochs, writer):
       return loss
 
   class EntropyPrediction(metric.Metric):
-    def __init__(self, threshold=0.3):
+    def __init__(self, threshold=1.0):
       super(EntropyPrediction, self).__init__()
       self.threshold = threshold
       self.prediction = torch.tensor([], dtype=torch.int)
       self.y = torch.tensor([], dtype=torch.int)
     
     def reset(self):
-      self.threshold = 0.3
+      # self.threshold = 0.3
       self.prediction = torch.tensor([])
       self.y = torch.tensor([])
       super(EntropyPrediction, self).reset()
@@ -308,12 +307,14 @@ def run(tb, vb, lr, epochs, writer):
 def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
+  threshold = 0.6
   
-  train_loader, train4val_loader, val_loader, num_of_images, mapping = get_dataloaders(tb, vb)
+  # Get dataloader
+  train_loader, train4val_loader, val_loader, num_of_images, mapping, imgs = get_dataloaders(tb, vb)
 
+  # Get Model
   model_paths = glob.glob(modelpath+'/*')
   models = []
-
   for modelpath in model_paths:
     model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
     model = carrier(model)
@@ -374,12 +375,10 @@ def evaluate(tb, vb, modelpath):
       'y': y_true
     }
     k += 1
-    # print(m)
     metric_list.append(m)
     print('Finish 1!')
 
   def log_validation_results(threshold, metric):
-    # _, entropy_rate, inds, y = metric
     name = metric['model']
     entropy_rate = metric['er']
     inds = metric['inds']
@@ -422,10 +421,25 @@ def evaluate(tb, vb, modelpath):
   def log_mean_results(threshold, softmax, y_true):
     entropy_base = math.log(softmax.shape[1])
     entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
-    print(entropy_rate)
+    # print(entropy_rate)
     _, inds = softmax.max(1)
     prediction = torch.where(entropy_rate<threshold, inds, torch.tensor([-1]).to(device=device))
     prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
+
+    high_confidence_inds = (entropy_rate<1e-3).nonzero()
+    low_confidence_inds = (entropy_rate>threshold).nonzero()
+    high_confidence = np.array([{
+      'from': int(imgs[x][1]),
+      'to': inds[x].item(),
+      'img': imgs[x][0],
+      'er': entropy_rate[x].item()
+    } for x in high_confidence_inds])
+    low_confidence = np.array([{
+      'from': int(imgs[x][1]),
+      'to': -1,
+      'img': imgs[x][0],
+      'er': entropy_rate[x].item()
+    } for x in low_confidence_inds])
 
     avg_accuracy = Labels2Acc((prediction, y_true))
     precision_recall = Labels2PrecisionRecall((prediction, y_true), val_loader.dataset.classes)
@@ -441,17 +455,64 @@ def evaluate(tb, vb, modelpath):
       confusion matrix: \n{}
       """.format(threshold,avg_accuracy,precision_recall['pretty'],cmatrix['pretty'])
     print (prompt)
+    return high_confidence, low_confidence
 
   scores = {}
 
   # test1 = log_validation_results(1.0)
 
-  threshold = 0.985
-
   for metrics in metric_list:
     score = log_validation_results(threshold, metrics)
 
-  log_mean_results(threshold, get_mean_softmax(metric_list), metric_list[0]['y'])
+  high, low = log_mean_results(threshold, get_mean_softmax(metric_list), metric_list[0]['y'])
+
+  # print(high)
+  print('High confidence known: {} (correct: {})'.format(len(high), sum([x['from'] == x['to'] for x in high])))
+  print('Low confidence known: {} (correct: {})'.format(len(low), sum([x['from'] == mapping[x['to']] for x in low])))
+
+  def transduct(datasets, img_pack, rate=0.8):
+    for dset_ind in range(datasets):
+      class_to_idx = val_loader.dataset.class_to_idx
+      classes = val_loader.dataset.classes
+      idx_to_classes = {}
+      for c in classes:
+        idx_to_classes[class_to_idx[c]] = c
+
+      train_base = '{}/{}/Train'.format(os.environ['datadir-base'], INFO['dataset'])
+      # source_base = '{}/{}/Val'.format(os.environ['datadir-base'], INFO['dataset'])
+      dist_base = '{}/{}-transduct{}'.format(os.environ['datadir-base'], INFO['dataset'], dset_ind)
+      if not os.path.exists(dist_base):
+        os.mkdir(dist_base)
+      dist_base = '{}/Train'.format(dist_base)
+      if not os.path.exists(dist_base):
+        os.mkdir(dist_base)
+
+      for c in classes:
+        if not os.path.exists('{}/{}'.format(dist_base, c)):
+          os.mkdir('{}/{}'.format(dist_base, c))
+
+      to_move = np.random.choice(img_pack, int(rate*img_pack.shape[0]))
+      for img in to_move:
+        source = img['img']
+        img_name = source[source.rfind('/')+1:]
+        class_name = idx_to_classes[img['to']] if img['to'] != -1 else 'UNKNOWN'
+        dist = '{}/{}/{}'.format(dist_base, class_name, img_name)
+        print ('Move "{}" to "{}"!'.format(source, dist))
+        os.popen('cp "{}" "{}"'.format(source, dist))
+  
+      train_imgs = glob.glob('{}/**/*'.format(train_base))
+      for img in train_imgs:
+        source = img
+        dist = img.replace(train_base, dist_base)
+        print('Move "{}" to "{}"!'.format(source, dist))
+        os.popen('cp "{}" "{}"'.format(source, dist))
+
+  transduct(2, high, 0.9)
+  transduct(2, low, 0.6)
+
+
+  # for pack in high:
+    # print ('Move {} to class{}(val calss {})'.format(pack['img'], pack['to'], pack['from']))
 
   # for threshold in np.arange(0.9, 1.0, 0.001):
   #   score = log_validation_results(threshold)
