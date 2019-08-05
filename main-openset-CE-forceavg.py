@@ -246,7 +246,7 @@ def run(tb, vb, lr, epochs, writer):
 
   @trainer.on(Events.EPOCH_STARTED)
   def refresh_pbar(engine):
-    print('Finish epoch {}'.format(engine.stat.epoch))
+    print('Finish epoch {}'.format(engine.state.epoch))
     pbar.refresh()
     pbar.n = pbar.last_print_n = 0
 
