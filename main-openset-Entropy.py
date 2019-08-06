@@ -139,7 +139,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 2. Define model
-  model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
   
   # ------------------------------------
@@ -239,10 +239,13 @@ def run(tb, vb, lr, epochs, writer):
   @trainer.on(Events.EPOCH_STARTED)
   def refresh_pbar(engine):
     pbar.refresh()
+    print('Finish epoch {}！'.format(engine.state.epoch))
     pbar.n = pbar.last_print_n = 0
 
   # Compute metrics on train data on each epoch completed.
-  @trainer.on(Events.EPOCH_COMPLETED)
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
