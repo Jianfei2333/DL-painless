@@ -187,7 +187,7 @@ def run(tb, vb, lr, epochs, writer):
       entropy_base = math.log(y_pred.shape[1])
       entropy = (-softmax * torch.log(softmax)).sum(1)/entropy_base
       values, inds = softmax.max(1)
-      prediction = torch.where(entropy>self.threshold, inds, torch.tensor([-1]).to(device=device))
+      prediction = torch.where(entropy<self.threshold, inds, torch.tensor([-1]).to(device=device))
       self.prediction = torch.cat((self.prediction.type(torch.LongTensor).to(device=device), torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)))
       self.y = torch.cat((self.y.type(torch.LongTensor).to(device=device), y.to(device=device)))
       # return self.prediction, self.y
