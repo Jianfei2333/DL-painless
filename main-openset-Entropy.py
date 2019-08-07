@@ -236,16 +236,16 @@ def run(tb, vb, lr, epochs, writer):
       pbar.desc = desc.format(engine.state.output)
       pbar.update(log_interval)
 
-  @trainer.on(Events.EPOCH_STARTED)
+  @trainer.on(Events.EPOCH_COMPLETED)
   def refresh_pbar(engine):
     pbar.refresh()
     print('Finish epoch {}！'.format(engine.state.epoch))
     pbar.n = pbar.last_print_n = 0
 
   # Compute metrics on train data on each epoch completed.
-  cpe = CustomPeriodicEvent(n_epochs=50)
-  cpe.attach(trainer)
-  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
+  # cpe = CustomPeriodicEvent(n_epochs=50)
+  # cpe.attach(trainer)
+  # @trainer.on(cpe.Events.EPOCHS_50_STARTED)
   def log_training_results(engine):
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
@@ -268,9 +268,6 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
   
   # Compute metrics on val data on each epoch completed.
-  cpe = CustomPeriodicEvent(n_epochs=50)
-  cpe.attach(trainer)
-  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_validation_results(engine):
     pbar.clear()
     print ('* - * - * - * - * - * - * - * - * - * - * - * - *')
@@ -291,6 +288,14 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
+
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  # @trainer.on(cpe.Events.EPOCHS_50_STARTED)
+  trainer.add_event_handler(cpe.Events.EPOCHS_50_COMPLETED, log_training_results)
+  trainer.add_event_handler(cpe.Events.EPOCHS_50_COMPLETED, log_validation_results)
+  trainer.add_event_handler(Events.STARTED, log_training_results)
+  trainer.add_event_handler(Events.STARTED, log_validation_results)
 
   # Save model ever N epoch.
   save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
@@ -510,8 +515,8 @@ def evaluate(tb, vb, modelpath):
       #   print('Move "{}" to "{}"!'.format(source, dist))
       #   os.popen('cp "{}" "{}"'.format(source, dist))
 
-  transduct(2, high, 0.9)
-  transduct(2, low, 0.6)
+  # transduct(2, high, 0.9)
+  # transduct(2, low, 0.6)
 
 
   # for pack in high:
