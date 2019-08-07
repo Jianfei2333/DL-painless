@@ -324,7 +324,7 @@ def evaluate(tb, vb, modelpath):
   model_paths = glob.glob(modelpath+'/*')
   models = []
   for modelpath in model_paths:
-    model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
+    model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
     model = carrier(model)
     model.load_state_dict(torch.load(modelpath, map_location=device))
     models.append(model)
@@ -434,7 +434,7 @@ def evaluate(tb, vb, modelpath):
     prediction = torch.where(entropy_rate<threshold, inds, torch.tensor([-1]).to(device=device))
     prediction = torch.tensor([mapping[x.item()] for x in prediction]).to(device=device)
 
-    high_confidence_inds = (entropy_rate<1e-3).nonzero()
+    high_confidence_inds = (entropy_rate<1e-1).nonzero()
     low_confidence_inds = (entropy_rate>threshold).nonzero()
     high_confidence = np.array([{
       'from': int(imgs[x][1]),
@@ -472,11 +472,12 @@ def evaluate(tb, vb, modelpath):
   for metrics in metric_list:
     score = log_validation_results(threshold, metrics)
 
-  high, low = log_mean_results(threshold, get_mean_softmax(metric_list), metric_list[0]['y'])
 
-  # print(high)
-  print('High confidence known: {} (correct: {})'.format(len(high), sum([x['from'] == x['to'] for x in high])))
-  print('Low confidence known: {} (correct: {})'.format(len(low), sum([x['from'] == mapping[x['to']] for x in low])))
+  for t in np.arange(0.1, 1.0, 0.1):
+    high, low = log_mean_results(t, get_mean_softmax(metric_list), metric_list[0]['y'])
+    # print(high)
+    print('High confidence known: {} (correct: {})'.format(len(high), sum([x['from'] == x['to'] for x in high])))
+    print('Low confidence known: {} (correct: {})'.format(len(low), sum([x['from'] == mapping[x['to']] for x in low])))
 
   def transduct(datasets, img_pack, rate=0.8):
     for dset_ind in range(datasets):
