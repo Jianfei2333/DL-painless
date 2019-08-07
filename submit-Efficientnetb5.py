@@ -187,9 +187,9 @@ def run(tb, vb, lr, epochs, writer):
     pbar.n = pbar.last_print_n = 0
 
   # Compute metrics on train data on each epoch completed.
-  cpe = CustomPeriodicEvent(n_epochs=50)
-  cpe.attach(trainer)
-  @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
+  # cpe = CustomPeriodicEvent(n_epochs=50)
+  # cpe.attach(trainer)
+  # @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     pbar.refresh()
     print ('Checking on training set.')
@@ -212,10 +212,16 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_text(os.environ['run-id'], prompt, engine.state.epoch)
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
-    pbar.n = pbar.last_print_n = 0
+    # pbar.n = pbar.last_print_n = 0
+
+  cpe = CustomPeriodicEvent(n_epochs=50)
+  cpe.attach(trainer)
+  # @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
+  trainer.add_event_handler(cpe.Events.EPOCHS_50_COMPLETED, log_training_results)
+  trainer.add_event_handler(Events.STARTED, log_training_results)
 
   # Save model ever N epoch.
-  save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=50, n_saved=2)
+  save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
   trainer.add_event_handler(Events.EPOCH_COMPLETED, save_model_handler, {'model': model})
 
   # Update learning-rate due to scheduler.
