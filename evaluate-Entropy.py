@@ -34,12 +34,12 @@ from Utils.Fakedata import get_fakedataloader
 
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-aux',
+  'dataset': 'ISIC2019-openset-2',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 7,
+    'num-of-classes': 6,
     'normalization': {
       # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
       # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
