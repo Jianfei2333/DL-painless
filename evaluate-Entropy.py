@@ -273,7 +273,7 @@ def evaluate(tb, vb, modelpath):
     cmatrix = Labels2CMatrix((prediction, y_true), val_loader.dataset.classes)
 
     prompt = """
-      Threshold: \n{}
+      Threshold: {}
 
       Avg accuracy: {:.4f}
 
