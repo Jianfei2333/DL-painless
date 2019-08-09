@@ -152,7 +152,7 @@ def evaluate(tb, vb, modelpath):
     def update(self, output):
       y_pred, y = output
       softmax = torch.exp(y_pred) / torch.exp(y_pred).sum(1)[:, None]
-      print(softmax)
+      # print(softmax)
       entropy_base = math.log(y_pred.shape[1])
       entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
       _, inds = softmax.max(1)
