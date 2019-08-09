@@ -123,10 +123,17 @@ def evaluate(tb, vb, modelpath):
   train_loader, train4val_loader, val_loader, num_of_images, mapping, imgs = get_dataloaders(tb, vb)
 
   # Get Model
-  model_paths = glob.glob(modelpath+'/*')
+  b0_model_paths = glob.glob(modelpath+'/b0/*')
+  b3_model_paths = glob.glob(modelpath+'/b3/*')
   models = []
-  for modelpath in model_paths:
+  for modelpath in b3_model_paths:
     model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+    model = carrier(model)
+    model.load_state_dict(torch.load(modelpath, map_location=device))
+    # model = torch.load(modelpath, map_location=device)['model']
+    models.append(model)
+  for modelpath in b0_model_paths:
+    model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
     model = carrier(model)
     model.load_state_dict(torch.load(modelpath, map_location=device))
     # model = torch.load(modelpath, map_location=device)['model']
