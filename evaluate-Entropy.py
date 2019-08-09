@@ -118,7 +118,7 @@ def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
   threshold = 1.0
-  rates = [0.7, 0.3]
+  # rates = [0.7, 0.3]
   
   # Get dataloader
   train_loader, train4val_loader, val_loader, num_of_images, mapping, imgs = get_dataloaders(tb, vb)
@@ -134,14 +134,14 @@ def evaluate(tb, vb, modelpath):
     model.load_state_dict(torch.load(modelpath, map_location=device))
     # model = torch.load(modelpath, map_location=device)['model']
     models.append(model)
-    model_weights.append(rates[0]/len(b3_model_paths))
+    # model_weights.append(rates[0]/len(b3_model_paths))
   for modelpath in b0_model_paths:
     model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
     model = carrier(model)
     model.load_state_dict(torch.load(modelpath, map_location=device))
     # model = torch.load(modelpath, map_location=device)['model']
     models.append(model)
-    model_weights.append(rates[1]/len(b0_model_paths))
+    # model_weights.append(rates[1]/len(b0_model_paths))
 
   model_paths = b3_model_paths
   model_paths.extend(b0_model_paths)
@@ -238,12 +238,12 @@ def evaluate(tb, vb, modelpath):
     for metrics in metric_list:
       softmax = metrics['softmax']
       if mean_softmax is not None:
-        mean_softmax = mean_softmax + softmax * model_weights[k]
+        mean_softmax = mean_softmax + softmax
         k += 1
       else:
-        mean_softmax = softmax * model_weights[k]
+        mean_softmax = softmax
         k += 1
-    return mean_softmax# / len(metric_list)
+    return mean_softmax / len(metric_list)
 
   def log_mean_results(threshold, softmax, y_true):
     entropy_base = math.log(softmax.shape[1])
