@@ -125,6 +125,8 @@ def evaluate(tb, vb, modelpath):
   # Get Model
   b0_model_paths = glob.glob(modelpath+'/b0/*')
   b3_model_paths = glob.glob(modelpath+'/b3/*')
+  model_paths = b3_model_paths
+  model_paths.extend(b0_model_paths)
   models = []
   for modelpath in b3_model_paths:
     model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
