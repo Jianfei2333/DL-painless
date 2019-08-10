@@ -32,6 +32,8 @@ import Utils.Configuration as config
 from Utils.Modelcarrier import carrier
 from Utils.Fakedata import get_fakedataloader
 
+from Utils.contrib.ls import CrossEntropywithLS
+
 # * * * * * * * * * * * * * * * * *
 # Define the training info
 # * * * * * * * * * * * * * * * * *
@@ -139,7 +141,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 2. Define model
-  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
   
   # ------------------------------------
@@ -197,7 +199,7 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
+    'loss': Loss(CrossEntropywithLS(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
@@ -210,7 +212,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, CrossEntropywithLS(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
