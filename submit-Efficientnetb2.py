@@ -31,16 +31,16 @@ import Utils.Configuration as config
 from Utils.Modelcarrier import carrier
 from Utils.Fakedata import get_fakedataloader
 
-from Utils.contrib.ls import CrossEntropywithLS
+# from Utils.contrib.ls import CrossEntropywithLS
 
 # * * * * * * * * * * * * * * * * *
 # Define the training info
 # * * * * * * * * * * * * * * * * *
 INFO = {
-  'model': 'Efficientnet-b4',
+  'model': 'Efficientnet-b2',
   'dataset': 'ISIC2019-openset-final',
   'model-info': {
-    'input-size': (380, 380)
+    'input-size': (300, 300)
   },
   'dataset-info': {
     'num-of-classes': 8,
@@ -135,7 +135,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 2. Define model
-  model = EfficientNet.from_pretrained('efficientnet-b2', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = EfficientNet.from_pretrained('efficientnet-b4', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
   
   # ------------------------------------
@@ -149,13 +149,13 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(CrossEntropywithLS(weight=weights)),
+    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, CrossEntropywithLS(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
