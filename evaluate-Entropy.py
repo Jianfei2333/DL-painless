@@ -125,6 +125,7 @@ def evaluate(tb, vb, modelpath):
 
   # Get Model
   b0_model_paths = glob.glob(modelpath+'/b0/*')
+  b1_model_paths = glob.glob(modelpath+'/b1/*')
   b3_model_paths = glob.glob(modelpath+'/b3/*')
   models = []
   model_weights = []
@@ -135,6 +136,15 @@ def evaluate(tb, vb, modelpath):
     # model = torch.load(modelpath, map_location=device)['model']
     models.append(model)
     # model_weights.append(rates[0]/len(b3_model_paths))
+  
+  for modelpath in b1_model_paths:
+    model = EfficientNet.from_pretrained('efficientnet-b1', num_classes=INFO['dataset-info']['num-of-classes'])
+    model = carrier(model)
+    model.load_state_dict(torch.load(modelpath, map_location=device))
+    # model = torch.load(modelpath, map_location=device)['model']
+    models.append(model)
+    # model_weights.append(rates[1]/len(b0_model_paths))
+  
   for modelpath in b0_model_paths:
     model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
     model = carrier(model)
@@ -144,6 +154,7 @@ def evaluate(tb, vb, modelpath):
     # model_weights.append(rates[1]/len(b0_model_paths))
 
   model_paths = b3_model_paths
+  model_paths.extend(b1_model_paths)
   model_paths.extend(b0_model_paths)
 
   class entropy(metric.Metric):
