@@ -40,13 +40,13 @@ INFO = {
   'model': 'Efficientnet-b3',
   'dataset': 'ISIC2019-openset-final',
   'model-info': {
-    'input-size': (300, 300)
+    'input-size': (456, 456)
   },
   'dataset-info': {
     'num-of-classes': 8,
     'normalization': {
-      'mean': [0.57225319,0.57213739,0.57223089],
-      'std': [0.11947449,0.11916592,0.11941016]
+      'mean': [0.5742, 0.5741, 0.5742],
+      'std': [0.1183, 0.1181, 0.1183]
     }
   }
 }
