@@ -31,7 +31,7 @@ import Utils.Configuration as config
 from Utils.Modelcarrier import carrier
 from Utils.Fakedata import get_fakedataloader
 
-# from Utils.contrib.ls import CrossEntropywithLS
+from Utils.contrib.ls import CrossEntropywithLS
 
 # * * * * * * * * * * * * * * * * *
 # Define the training info
@@ -149,13 +149,13 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
+    'loss': Loss(CrossEntropywithLS(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, CrossEntropywithLS(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
