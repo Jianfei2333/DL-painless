@@ -73,7 +73,7 @@ def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
   # threshold = np.arange(0.5, 1.0001, 0.02)
-  threshold = 0.9
+  threshold = 0.72
   iterations = 50
   dist = modelpath+'/dist'
 

@@ -58,8 +58,8 @@ def get_dataloaders(train_batchsize, val_batchsize):
   transform = {
     'val': T.Compose([
       T.Resize(608),
-      # T.RandomResizedCrop(456),
-      T.RandomCrop(456),
+      T.RandomResizedCrop(456),
+      # T.RandomCrop(456),
       T.ToTensor(),
       normalize
     ])
@@ -81,7 +81,7 @@ def evaluate(tb, vb, modelpath):
   dist = modelpath+'/dist'
   if not os.path.exists(dist):
     os.mkdir(dist)
-  savepath = '{}/{}.csv'.format(dist, 'b5-3')
+  savepath = '{}/{}.csv'.format(dist, 'b5-6')
 
   model_path = glob.glob(modelpath+'/b5/*')[0]
   model = EfficientNet.from_pretrained('efficientnet-b5', num_classes=8)
