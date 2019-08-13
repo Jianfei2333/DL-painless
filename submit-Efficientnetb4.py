@@ -31,7 +31,7 @@ import Utils.Configuration as config
 from Utils.Modelcarrier import carrier
 from Utils.Fakedata import get_fakedataloader
 
-# from Utils.contrib.ls import CrossEntropywithLS
+from Utils.contrib.ls import CrossEntropywithLS
 
 # * * * * * * * * * * * * * * * * *
 # Define the training info
@@ -40,13 +40,13 @@ INFO = {
   'model': 'Efficientnet-b4',
   'dataset': 'ISIC2019-openset-final',
   'model-info': {
-    'input-size': (300, 300)
+    'input-size': (456, 456)
   },
   'dataset-info': {
     'num-of-classes': 8,
     'normalization': {
-      'mean': [0.57225319,0.57213739,0.57223089],
-      'std': [0.11947449,0.11916592,0.11941016]
+      'mean': [0.5742, 0.5741, 0.5742],
+      'std': [0.1183, 0.1181, 0.1183]
     }
   }
 }
@@ -149,13 +149,13 @@ def run(tb, vb, lr, epochs, writer):
 
   train_metrics = {
     'accuracy': Accuracy(),
-    'loss': Loss(nn.CrossEntropyLoss(weight=weights)),
+    'loss': Loss(CrossEntropywithLS(weight=weights)),
     'precision_recall': MetricsLambda(PrecisionRecallTable, Precision(), Recall(), train_loader.dataset.classes),
     'cmatrix': MetricsLambda(CMatrixTable, ConfusionMatrix(INFO['dataset-info']['num-of-classes']), train_loader.dataset.classes)
   }
   # ------------------------------------
   # 5. Create trainer
-  trainer = create_supervised_trainer(model, optimizer, nn.CrossEntropyLoss(weight=weights), device=device)
+  trainer = create_supervised_trainer(model, optimizer, CrossEntropywithLS(weight=weights), device=device)
   
   # ------------------------------------
   # 6. Create evaluator
@@ -187,9 +187,6 @@ def run(tb, vb, lr, epochs, writer):
     pbar.n = pbar.last_print_n = 0
 
   # Compute metrics on train data on each epoch completed.
-  # cpe = CustomPeriodicEvent(n_epochs=50)
-  # cpe.attach(trainer)
-  # @trainer.on(cpe.Events.EPOCHS_50_COMPLETED)
   def log_training_results(engine):
     pbar.refresh()
     print ('Checking on training set.')

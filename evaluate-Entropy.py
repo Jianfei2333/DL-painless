@@ -75,10 +75,12 @@ def get_dataloaders(train_batchsize, val_batchsize):
       normalize
     ]), 
     'val': T.Compose([
-      T.Resize(input_size), # 放大
-      # T.Resize(350),
+      # T.Resize(input_size), # 放大
       # T.CenterCrop(input_size),
-      # T.CenterCrop(input_size),
+      T.Resize(400),
+      # T.CenterCrop(300),
+      T.RandomResizedCrop(300),
+      # T.RandomCrop(300),
       T.ToTensor(),
       normalize
     ])
@@ -86,6 +88,7 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train_dset = dset.ImageFolder('{}/{}'.format(base, 'Train'), transform=transform['train'])
   train4val_dset = dset.ImageFolder('{}/{}'.format(base, 'Train'), transform=transform['val'])
   val_dset = dset.ImageFolder('{}/{}'.format(base, 'Val'), transform=transform['val'])
+  val_aug_dset = dset.ImageFolder('{}/{}'.format(base, 'Val'), transform=transform['train'])
 
   labels = torch.from_numpy(np.array(train_dset.imgs)[:, 1].astype(int))
   num_of_images_by_class = torch.zeros(len(train_dset.classes))
@@ -106,10 +109,12 @@ def get_dataloaders(train_batchsize, val_batchsize):
   train_loader = DataLoader(train_dset, batch_size=train_batchsize, sampler=sampler.RandomSampler(range(train_len)), **kwargs)
   train4val_loader = DataLoader(train4val_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(train_len)), **kwargs)
   val_loader = DataLoader(val_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(val_len)), **kwargs)
+  val_aug_loader = DataLoader(val_aug_dset, batch_size=val_batchsize, sampler=sampler.SequentialSampler(range(val_len)), **kwargs)
 
   imgs = np.array(val_dset.imgs)
 
   return train_loader, train4val_loader, val_loader, num_of_images_by_class, mapping, imgs
+  # return train_loader, train4val_loader, val_aug_loader, num_of_images_by_class, mapping, imgs
 
 # * * * * * * * * * * * * * * * * *
 # Evaluator
@@ -117,11 +122,16 @@ def get_dataloaders(train_batchsize, val_batchsize):
 def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
-  threshold = 1.0
+  threshold = np.arange(0.5, 1.0, 0.02)
+  iterations = 50
+  dist = modelpath+'/dist'
+  if not os.path.exists(dist):
+    os.mkdir(dist)
+  savepath = '{}/{}.csv'.format(dist, 'b0-4')
   # rates = [0.7, 0.3]
   
   # Get dataloader
-  train_loader, train4val_loader, val_loader, num_of_images, mapping, imgs = get_dataloaders(tb, vb)
+  
 
   # Get Model
   b0_model_paths = glob.glob(modelpath+'/b0/*')
@@ -130,10 +140,16 @@ def evaluate(tb, vb, modelpath):
   models = []
   model_weights = []
   for modelpath in b3_model_paths:
-    model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
-    model = carrier(model)
-    model.load_state_dict(torch.load(modelpath, map_location=device))
-    # model = torch.load(modelpath, map_location=device)['model']
+    # model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+    # model = carrier(model)
+    # model.load_state_dict(torch.load(modelpath, map_location=device))
+    if modelpath.find('3.pth') != -1:
+      # model = torch.load(modelpath, map_location=device)
+      model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+      model.load_state_dict(torch.load(modelpath, map_location=device))
+      model = carrier(model)
+    else:
+      model = torch.load(modelpath, map_location=device)['model']
     models.append(model)
     # model_weights.append(rates[0]/len(b3_model_paths))
   
@@ -196,22 +212,24 @@ def evaluate(tb, vb, modelpath):
   }
 
   metric_list = []
-  k = 0
-  for model in models:
-    val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
-    val_evaluator.run(val_loader)
-    metrics = val_evaluator.state.metrics['result']
-    softmax, er, inds, y_true = metrics
-    m = {
-      'model': model_paths[k],
-      'softmax': softmax,
-      'er': er,
-      'inds': inds,
-      'y': y_true
-    }
-    k += 1
-    metric_list.append(m)
-    print('Finish 1!')
+  train_loader, train4val_loader, val_loader, num_of_images, mapping, imgs = get_dataloaders(tb, vb)
+  for i in range(iterations):
+    _, _, val_loader, _, _, _ = get_dataloaders(tb, vb)
+    print('Iteration {}'.format(i))
+    for ind, model in enumerate(models):
+      val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
+      val_evaluator.run(val_loader)
+      metrics = val_evaluator.state.metrics['result']
+      softmax, er, inds, y_true = metrics
+      m = {
+        'model': model_paths[ind],
+        'softmax': softmax,
+        'er': er,
+        'inds': inds,
+        'y': y_true
+      }
+      metric_list.append(m)
+      print('\tFinish 1!')
 
   def log_validation_results(threshold, metric):
     name = metric['model']
@@ -256,6 +274,24 @@ def evaluate(tb, vb, modelpath):
         k += 1
     return mean_softmax / len(metric_list)
 
+  def get_min_er_softmax(metric_list):
+    res_softmax = None
+    res_er = None
+    for metrics in metric_list:
+      if res_softmax is not None:
+        mask = torch.where(res_er < metrics['er'], torch.tensor(0).to(device=device), torch.tensor(1).to(device=device))
+        mask = mask.nonzero()[:,0]
+        res_softmax[mask] = metrics['softmax'][mask]
+        res_er[mask] = metrics['er'][mask]
+      else:
+        res_softmax = metrics['softmax']
+        res_er = metrics['er']
+    return res_softmax
+
+  def save_softmax(softmax):
+    np_softmax = softmax.cpu().numpy()
+    np.savetxt(savepath, np_softmax, delimiter=",")
+
   def log_mean_results(threshold, softmax, y_true):
     entropy_base = math.log(softmax.shape[1])
     entropy_rate = (-softmax * torch.log(softmax)).sum(1)/entropy_base
@@ -292,6 +328,7 @@ def evaluate(tb, vb, modelpath):
 
       confusion matrix: \n{}
       """.format(threshold,avg_accuracy,precision_recall['pretty'],cmatrix['pretty'])
+    logging.info('\n'+prompt)
     print (prompt)
     return high_confidence, low_confidence
 
@@ -300,14 +337,14 @@ def evaluate(tb, vb, modelpath):
   # test1 = log_validation_results(1.0)
 
   for metrics in metric_list:
-    score = log_validation_results(threshold, metrics)
+    score = log_validation_results(1, metrics)
 
 
-  for t in np.arange(0.1, 1.0, 0.1):
-    high, low = log_mean_results(t, get_mean_softmax(metric_list), metric_list[0]['y'])
-    # print(high)
-    print('High confidence known: {} (correct: {})'.format(len(high), sum([x['from'] == x['to'] for x in high])))
-    print('Low confidence known: {} (correct: {})'.format(len(low), sum([x['from'] == mapping[x['to']] for x in low])))
+  for t in threshold:
+    mean_softmax = get_mean_softmax(metric_list)
+    save_softmax(mean_softmax)
+    high, low = log_mean_results(t, mean_softmax, metric_list[0]['y'])
+    # high, low = log_mean_results(t, get_min_er_softmax(metric_list), metric_list[0]['y'])
 
   def transduct(datasets, img_pack, rate=0.8):
     for dset_ind in range(datasets):
