@@ -73,7 +73,7 @@ def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
   # threshold = np.arange(0.5, 1.0001, 0.02)
-  threshold = 0.72
+  threshold = 0.74
   iterations = 50
   dist = modelpath+'/dist'
 
@@ -119,8 +119,10 @@ def evaluate(tb, vb, modelpath):
           f.write('%s\n' % img)
       print('Finish generate unknown image list!')
 
-    df.to_csv(modelpath+'/submission.csv')
-    with open(modelpath+'/submission.csv', 'r+') as f:
+    submission = modelpath+'/submission.csv'
+    # submission = '/home/huihui/Desktop/submittion/submission.csv'
+    df.to_csv(submission)
+    with open(submission, 'r+') as f:
       old = f.read()
       f.seek(0)
       f.write('image')
@@ -132,12 +134,17 @@ def evaluate(tb, vb, modelpath):
   for path in glob.glob(dist+'/*'):
     softmax = load_softmax(path)
     softmax_list.append(softmax)
+  # softmax = load_softmax(modelpath)
+  # softmax_list.append(softmax)
 
   print('Finish load softmax!')
   
   mean_softmax = get_mean_softmax(softmax_list)
   unknown = log_mean_results(threshold, mean_softmax, torch.tensor(imgs[:,1].astype(int)).to(device=device))
   generate_submit_file(mean_softmax, unknown)
+  # s = torch.zeros_like(mean_softmax).type(torch.float).to(device=device)
+  # u = torch.ones_like(unknown).type(torch.float).to(device=device)
+  # generate_submit_file(s, u)
 
 if __name__ == '__main__':
   args = vars(GetArgParser().parse_args())

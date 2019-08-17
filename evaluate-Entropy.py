@@ -34,12 +34,12 @@ from Utils.Fakedata import get_fakedataloader
 
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-2',
+  'dataset': 'ISIC2019-aux',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
-    'num-of-classes': 6,
+    'num-of-classes': 8,
     'normalization': {
       # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
       # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
@@ -77,10 +77,10 @@ def get_dataloaders(train_batchsize, val_batchsize):
     'val': T.Compose([
       # T.Resize(input_size), # 放大
       # T.CenterCrop(input_size),
-      T.Resize(400),
+      T.Resize(608),
       # T.CenterCrop(300),
-      T.RandomResizedCrop(300),
-      # T.RandomCrop(300),
+      # T.RandomResizedCrop(300),
+      T.RandomCrop(456),
       T.ToTensor(),
       normalize
     ])
@@ -123,11 +123,11 @@ def evaluate(tb, vb, modelpath):
   device = os.environ['main-device']
   logging.info('Evaluating program start!')
   threshold = np.arange(0.5, 1.0, 0.02)
-  iterations = 50
+  iterations = 1
   dist = modelpath+'/dist'
   if not os.path.exists(dist):
     os.mkdir(dist)
-  savepath = '{}/{}.csv'.format(dist, 'b0-4')
+  savepath = '{}/{}.csv'.format(dist, 'test')
   # rates = [0.7, 0.3]
   
   # Get dataloader
@@ -136,20 +136,16 @@ def evaluate(tb, vb, modelpath):
   # Get Model
   b0_model_paths = glob.glob(modelpath+'/b0/*')
   b1_model_paths = glob.glob(modelpath+'/b1/*')
-  b3_model_paths = glob.glob(modelpath+'/b3/*')
+  b5_model_paths = glob.glob(modelpath+'/b5/*')
   models = []
   model_weights = []
-  for modelpath in b3_model_paths:
+  for modelpath in b5_model_paths:
     # model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
     # model = carrier(model)
     # model.load_state_dict(torch.load(modelpath, map_location=device))
-    if modelpath.find('3.pth') != -1:
-      # model = torch.load(modelpath, map_location=device)
-      model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
-      model.load_state_dict(torch.load(modelpath, map_location=device))
-      model = carrier(model)
-    else:
-      model = torch.load(modelpath, map_location=device)['model']
+    model = EfficientNet.from_pretrained('efficientnet-b5', num_classes=8)
+    model.load_state_dict(torch.load(modelpath, map_location=torch.device('cpu'))['model'].module.state_dict())
+    model = model.to(device=device)
     models.append(model)
     # model_weights.append(rates[0]/len(b3_model_paths))
   
@@ -169,7 +165,7 @@ def evaluate(tb, vb, modelpath):
     models.append(model)
     # model_weights.append(rates[1]/len(b0_model_paths))
 
-  model_paths = b3_model_paths
+  model_paths = b5_model_paths
   model_paths.extend(b1_model_paths)
   model_paths.extend(b0_model_paths)
 

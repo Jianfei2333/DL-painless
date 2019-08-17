@@ -81,7 +81,7 @@ def evaluate(tb, vb, modelpath):
   dist = modelpath+'/dist'
   if not os.path.exists(dist):
     os.mkdir(dist)
-  savepath = '{}/{}.csv'.format(dist, 'b5-6')
+  savepath = '{}/{}.csv'.format(dist, 'b5-8')
 
   model_path = glob.glob(modelpath+'/b5/*')[0]
   model = EfficientNet.from_pretrained('efficientnet-b5', num_classes=8)
