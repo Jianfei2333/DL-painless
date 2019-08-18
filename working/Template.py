@@ -39,15 +39,13 @@ from Utils.contrib.ls import CrossEntropywithLS
 # * * * * * * * * * * * * * * * * *
 INFO = {
   'model': 'Efficientnet-b3',
-  'dataset': 'ISIC2019-openset-2',
+  'dataset': 'ISIC2019-openset',
   'model-info': {
     'input-size': (300, 300)
   },
   'dataset-info': {
     'num-of-classes': 6,
     'normalization': {
-      # 'mean': [0.5721789939624365,0.5720740320330704,0.5721462963466771],
-      # 'std': [0.19069751305853744,0.21423087622553325,0.22522116414142548]
       'mean': [0.5742, 0.5741, 0.5742],
       'std': [0.1183, 0.1181, 0.1183]
     },
@@ -82,7 +80,6 @@ def get_dataloaders(train_batchsize, val_batchsize):
     ]), 
     'val': T.Compose([
       T.Resize(input_size), # 放大
-      # T.CenterCrop(input_size),
       T.ToTensor(),
       normalize
     ])
@@ -134,9 +131,7 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 1. Define dataloader
   train_loader, train4val_loader, val_loader, num_of_images, mapping, _ = get_dataloaders(tb, vb)
-  # train_loader, train4val_loader, val_loader, num_of_images = get_dataloaders(tb, vb)
   weights = (1/num_of_images)/((1/num_of_images).sum().item())
-  # weights = (1/num_of_images)/(1/num_of_images + 1/(num_of_images.sum().item()-num_of_images))
   weights = weights.to(device=device)
   
   # ------------------------------------
@@ -152,23 +147,6 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 4. Define metrics
-
-  class SoftCrossEntropyLoss(nn.Module):
-    def __init__(self, weight=None):
-      super(SoftCrossEntropyLoss, self).__init__()
-      self.class_weights = weight
-    
-    def forward(self, input, target):
-      softmax = torch.exp(input) / torch.exp(input).sum(1)[:, None]
-      onehot_labels = to_onehot(target, input.shape[1])
-      soft_labels = torch.zeros_like(onehot_labels)
-      soft_labels = torch.where(onehot_labels.cpu() == 1, torch.tensor([0.9]), torch.tensor([0.1/(input.shape[1]-1)])).to(device=device)
-      if self.class_weights is not None:
-        # print(soft_labels.shape, softmax.shape)
-        loss = -torch.sum(torch.log(softmax) * soft_labels * self.class_weights * input.shape[1])
-      else:
-        loss = -torch.sum(torch.log(softmax) * soft_labels)
-      return loss
 
   class EntropyPrediction(metric.Metric):
     def __init__(self, threshold=1.0):
@@ -219,23 +197,23 @@ def run(tb, vb, lr, epochs, writer):
   train_evaluator = create_supervised_evaluator(model, metrics=train_metrics, device=device)
   val_evaluator = create_supervised_evaluator(model, metrics=val_metrics, device=device)
 
-  desc = 'ITERATION - loss: {:.4f}'
+  desc = 'Epoch {} - loss: {:.4f}'
   pbar = tqdm(
     initial=0, leave=False, total=len(train_loader),
-    desc=desc.format(0)
+    desc=desc.format(0, 0)
   )
 
 
   # ------------------------------------
   # 7. Create event hooks
 
-  # Update process bar on each iteration completed.
+  # Basic events on showing training procedure.
   @trainer.on(Events.ITERATION_COMPLETED)
   def log_training_loss(engine):
     log_interval = 1
     iter = (engine.state.iteration - 1) % len(train_loader) + 1
     if iter % log_interval == 0:
-      pbar.desc = desc.format(engine.state.output)
+      pbar.desc = desc.format(engine.state.epoch, engine.state.output)
       pbar.update(log_interval)
 
   @trainer.on(Events.EPOCH_COMPLETED)
@@ -244,10 +222,7 @@ def run(tb, vb, lr, epochs, writer):
     print('Finish epoch {}！'.format(engine.state.epoch))
     pbar.n = pbar.last_print_n = 0
 
-  # Compute metrics on train data on each epoch completed.
-  # cpe = CustomPeriodicEvent(n_epochs=50)
-  # cpe.attach(trainer)
-  # @trainer.on(cpe.Events.EPOCHS_50_STARTED)
+  # Trigger: Compute metrics on training data.
   def log_training_results(engine):
     print ('Checking on training set.')
     train_evaluator.run(train4val_loader)
@@ -269,7 +244,7 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Acc', {'Train Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Loss', {'Train Loss': avg_loss}, engine.state.epoch)
   
-  # Compute metrics on val data on each epoch completed.
+  # Trigger: Compute metrics on validating data.
   def log_validation_results(engine):
     pbar.clear()
     print ('* - * - * - * - * - * - * - * - * - * - * - * - *')
@@ -291,20 +266,22 @@ def run(tb, vb, lr, epochs, writer):
     writer.add_scalars('Aggregate/Acc', {'Val Acc': avg_accuracy}, engine.state.epoch)
     writer.add_scalars('Aggregate/Score', {'Val avg precision': precision_recall['data'][0, -1], 'Val avg recall': precision_recall['data'][1, -1]}, engine.state.epoch)
 
+  # ------------------------------------
+  # Trainer triggers settings
+  
+  # Save model ever N epoch.
   save_model_handler = ModelCheckpoint(os.environ['savedir'], '', save_interval=10, n_saved=2)
   trainer.add_event_handler(Events.EPOCH_COMPLETED, save_model_handler, {'model': model})
   
-  cpe = CustomPeriodicEvent(n_epochs=200)
+  # Evaluate.
+  evaluate_interval = epochs
+  cpe = CustomPeriodicEvent(n_epochs=epochs)
   cpe.attach(trainer)
-  # @trainer.on(cpe.Events.EPOCHS_50_STARTED)
-  trainer.add_event_handler(cpe.Events.EPOCHS_200_COMPLETED, log_training_results)
-  trainer.add_event_handler(cpe.Events.EPOCHS_200_COMPLETED, log_validation_results)
-  # trainer.add_event_handler(Events.STARTED, log_training_results)
-  # trainer.add_event_handler(Events.STARTED, log_validation_results)
+  on_evaluate_event = getattr(cpe.Events, 'EPOCHS_{}_COMPLETED'.format(evaluate_interval))
+  trainer.add_event_handler(on_evaluate_event, log_training_results)
+  trainer.add_event_handler(on_evaluate_event, log_validation_results)
 
-  # Save model ever N epoch.
-
-  # Update learning-rate due to scheduler.
+  # Update learning rate.
   trainer.add_event_handler(Events.EPOCH_STARTED, ignite_scheduler)
 
   # ------------------------------------
