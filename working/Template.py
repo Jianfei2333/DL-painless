@@ -136,7 +136,7 @@ def run(tb, vb, lr, epochs, writer):
   
   # ------------------------------------
   # 2. Define model
-  model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
   model = carrier(model)
   
   # ------------------------------------
