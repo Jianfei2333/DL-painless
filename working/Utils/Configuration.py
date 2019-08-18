@@ -102,6 +102,9 @@ def run(info):
   pd.set_option('display.max_rows', 15)
   pd.set_option('display.max_colwidth', 10)
 
+  # Distribution settings
+  torch.distributed.init_process_group('nccl', init_method=info['dist_method'], world_size=info['world'], rank=info['rank'])
+
   # Return
   writer = GetTBLogger()
   logging = GetLogger()

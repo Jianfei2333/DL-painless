@@ -19,4 +19,11 @@ def GetArgParser():
                       help='Continue training (default False)')
   parser.add_argument('--model-path', type=str, default='',
                       help='Assign path of model to be evaluated (default ``, must be assigned)')
+  # For distribution
+  parser.add_argument('--dist-method', type=str, default='file:///home/sysu_issjyin_2/jianfei/test/dist-tmp.dat',
+                      help='Assign a method that distribution process working on')
+  parser.add_argument('--world', type=int, default=2,
+                      help='Assign total number of gpus the trainer use')
+  parser.add_argument('--rank', type=int, default=0,
+                      help='Assign current process id (0 to world-1)')
   return parser
