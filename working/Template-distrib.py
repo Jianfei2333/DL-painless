@@ -139,6 +139,7 @@ def run(tb, vb, lr, epochs, writer):
   # ------------------------------------
   # 2. Define model
   model = EfficientNet.from_pretrained('efficientnet-b3', num_classes=INFO['dataset-info']['num-of-classes'])
+  model = model.to(device=device)
   model = torch.nn.parallel.DistributedDataParallel(model, [int(device[-1])])
   # model = carrier(model)
   
